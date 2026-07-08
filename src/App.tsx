@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
-import { InquiryFormModal } from './components/InquiryFormModal';
-import { TrackInquiryView } from './components/TrackInquiryView';
+import { InsuranceFormModal } from './components/InsuranceFormModal';
+import { InquiryTracker } from './components/InquiryTracker';
 import { AdminPanel } from './components/AdminPanel';
+import { UserDashboard } from './components/UserDashboard';
+import { AuthModal } from './components/AuthModal';
 import { SupabaseGuideModal } from './components/SupabaseGuideModal';
-import { AIConsultantWidget } from './components/AIConsultantWidget';
+import { AiConsultantDrawer } from './components/AiConsultantDrawer';
 import { Footer } from './components/Footer';
-import { InsuranceType, IRAN_BIMEH_AGENCY } from './types';
+import { InsuranceType, IRAN_BIMEH_AGENCY, User } from './types';
 import { 
   ShieldCheck, 
   Calculator, 
@@ -26,11 +28,25 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'track' | 'admin' | 'supabase'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'track' | 'admin' | 'supabase' | 'user_dashboard'>('home');
   const [selectedInsuranceType, setSelectedInsuranceType] = useState<InsuranceType>('third_party');
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [searchTrackingQuery, setSearchTrackingQuery] = useState('');
+  const [isConsultantOpen, setIsConsultantOpen] = useState(false);
+
+  // Authentication States
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('golzar_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'user' | 'admin'>('user');
 
   const handleOpenForm = (type: InsuranceType) => {
     setSelectedInsuranceType(type);
@@ -42,6 +58,38 @@ export default function App() {
     setActiveTab('track');
   };
 
+  const handleOpenLoginModal = (mode: 'user' | 'admin') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    localStorage.setItem('golzar_user', JSON.stringify(user));
+    
+    // Redirect to relevant panel
+    if (user.role === 'admin') {
+      setActiveTab('admin');
+    } else {
+      setActiveTab('user_dashboard');
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('golzar_user');
+    setActiveTab('home');
+  };
+
+  const handleGoToDashboard = () => {
+    if (!currentUser) return;
+    if (currentUser.role === 'admin') {
+      setActiveTab('admin');
+    } else {
+      setActiveTab('user_dashboard');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-emerald-600 selection:text-white dir-rtl">
       
@@ -50,6 +98,9 @@ export default function App() {
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         onOpenForm={handleOpenForm} 
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onOpenLoginModal={handleOpenLoginModal}
       />
 
       {/* Main Content Body */}
@@ -62,6 +113,9 @@ export default function App() {
             <HeroSection 
               onOpenForm={handleOpenForm}
               onGoToTrack={() => setActiveTab('track')}
+              currentUser={currentUser}
+              onOpenLoginModal={handleOpenLoginModal}
+              onGoToDashboard={handleGoToDashboard}
             />
 
             {/* Why Choose Iran Insurance Agency Golzar Code 30962 */}
@@ -222,15 +276,24 @@ export default function App() {
 
         {/* Track Inquiry Tab View */}
         {activeTab === 'track' && (
-          <TrackInquiryView 
-            initialSearchQuery={searchTrackingQuery}
-            onOpenNewInquiry={() => handleOpenForm('third_party')}
+          <InquiryTracker 
+            initialQuery={searchTrackingQuery}
+            onBackToHome={() => setActiveTab('home')}
           />
         )}
 
         {/* Admin Panel Tab View */}
         {activeTab === 'admin' && (
           <AdminPanel 
+            onOpenNewInquiry={() => handleOpenForm('third_party')}
+          />
+        )}
+
+        {/* User Dashboard Tab View */}
+        {activeTab === 'user_dashboard' && currentUser && (
+          <UserDashboard 
+            user={currentUser}
+            onLogout={handleLogout}
             onOpenNewInquiry={() => handleOpenForm('third_party')}
           />
         )}
@@ -253,11 +316,11 @@ export default function App() {
       </main>
 
       {/* Interactive Form Modal */}
-      <InquiryFormModal
+      <InsuranceFormModal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
         initialType={selectedInsuranceType}
-        onSuccessSubmitted={handleSuccessSubmitted}
+        onSuccessSubmit={handleSuccessSubmitted}
       />
 
       {/* Supabase Setup Modal */}
@@ -269,8 +332,35 @@ export default function App() {
         }}
       />
 
-      {/* AI Consultant Chat Floating Widget */}
-      <AIConsultantWidget />
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        initialMode={authModalMode}
+      />
+
+      {/* Floating AI Consultant Button */}
+      {!isConsultantOpen && (
+        <button
+          onClick={() => setIsConsultantOpen(true)}
+          className="fixed bottom-5 right-5 z-40 group relative bg-gradient-to-r from-emerald-800 to-slate-900 hover:from-emerald-700 hover:to-slate-800 text-white p-3.5 rounded-2xl shadow-2xl border-2 border-amber-400 flex items-center gap-2.5 transition-all duration-300 hover:scale-105"
+        >
+          <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold shadow animate-pulse">
+            <Sparkles className="w-5 h-5 text-slate-950" />
+          </div>
+          <div className="text-right hidden sm:block">
+            <p className="text-xs font-black text-amber-300">مشاور هوشمند بیمه</p>
+            <p className="text-[10px] text-emerald-200">پاسخ آنلاین به سوالات بیمه</p>
+          </div>
+        </button>
+      )}
+
+      {/* AI Consultant Drawer */}
+      <AiConsultantDrawer
+        isOpen={isConsultantOpen}
+        onClose={() => setIsConsultantOpen(false)}
+      />
 
       {/* Footer */}
       <Footer 

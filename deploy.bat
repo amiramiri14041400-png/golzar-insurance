@@ -1,55 +1,56 @@
 @echo off
-:: این اسکریپت برای تست بیلد پروژه و ارسال خودکار کدهای جدید به گیت‌هاب در ویندوز است.
+rem 
 chcp 65001 > nul
 
-echo ============================================
-echo 🎯 شروع فرآیند تست و ارسال پروژه به گیت‌هاب...
-echo ============================================
 
-:: ۱. نصب پکیج‌ها
-echo 📦 در حال نصب پکیج‌های پروژه...
+
+rem ۱
+
 call npm install
-if %errorlevel% neq 0 (
-    echo ❌ خطا در نصب پکیج‌ها!
-    pause
-    exit /b %errorlevel%
-)
+if errorlevel 1 goto INSTALL_ERROR
 
-:: ۲. تست بیلد لوکال
-echo 🛠️ در حال تست بیلد فرانت‌اند...
+rem
+
 call npm run build:pages
-if %errorlevel% neq 0 (
-    echo ❌ خطا: بیلد پروژه با شکست مواجه شد! لطفاً خطاها را بررسی کنید.
-    pause
-    exit /b %errorlevel%
-)
+if errorlevel 1 goto BUILD_ERROR
 
-echo ✅ تست بیلد با موفقیت انجام شد و پوشه dist ساخته شد.
 
-:: ۳. بررسی و فرستادن به گیت
-if not exist .git (
-    echo ⚠️ اخطار: پوشه .git یافت نشد. در حال راه‌اندازی گیت...
-    git init
-)
 
-echo 📤 در حال آماده‌سازی و ارسال کدها به گیت‌هاب...
+rem 
+if exist .git goto GIT_OK
+
+git init
+:GIT_OK
+
+
 git add .
 git commit -m "Update website from AI Studio (Vite + React)"
 
-:: ارسال به شاخه پیش‌فرض
+rem
+set BRANCH=main
 for /f "tokens=*" %%i in ('git branch --show-current') do set BRANCH=%%i
-if "%BRANCH%"=="" set BRANCH=main
 
-echo 🚀 در حال پوش کردن به شاخه %BRANCH%...
+
 git push origin %BRANCH%
+if errorlevel 1 goto PUSH_ERROR
+ 
+goto END_SCRIPT
 
-if %errorlevel% eq 0 (
-    echo ============================================
-    echo 🎉 عالیه! پروژه‌تون با موفقیت به گیت‌هاب ارسال شد.
-    echo حالا کلودفلر به طور خودکار شروع به بیلد و انتشار می‌کنه.
-    echo ============================================
-) else (
-    echo ❌ خطا در ارسال به گیت‌هاب. مطمئن شوید که دسترسی‌های لازم را دارید.
-)
+:INSTALL_ERROR
 
+goto PAUSE_END
+
+:BUILD_ERROR
+
+goto PAUSE_END
+
+:PUSH_ERROR
+
+goto PAUSE_END
+
+:PAUSE_END
+pause
+exit /b 1
+
+:END_SCRIPT
 pause

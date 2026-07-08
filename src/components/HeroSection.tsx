@@ -11,16 +11,28 @@ import {
   Search,
   Sparkles,
   CheckCircle2,
-  ArrowLeft
+  ArrowLeft,
+  User,
+  Lock,
+  ChevronLeft
 } from 'lucide-react';
-import { InsuranceType, IRAN_BIMEH_AGENCY } from '../types';
+import { InsuranceType, IRAN_BIMEH_AGENCY, User as UserType } from '../types';
 
 interface HeroSectionProps {
   onOpenForm: (type: InsuranceType) => void;
   onGoToTrack: () => void;
+  currentUser: UserType | null;
+  onOpenLoginModal: (mode: 'user' | 'admin') => void;
+  onGoToDashboard: () => void;
 }
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenForm, onGoToTrack }) => {
+export const HeroSection: React.FC<HeroSectionProps> = ({ 
+  onOpenForm, 
+  onGoToTrack,
+  currentUser,
+  onOpenLoginModal,
+  onGoToDashboard
+}) => {
   const categories = [
     {
       type: 'third_party' as InsuranceType,
@@ -79,7 +91,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenForm, onGoToTrac
   ];
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-slate-900 via-emerald-950 to-slate-900 text-white pt-8 pb-16">
+    <section className="relative overflow-hidden bg-gradient-to-b from-slate-900 via-emerald-950 to-slate-900 text-white pt-8 pb-16 text-right">
       {/* Subtle Persian Geometric Background Accents */}
       <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#d4af37_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
@@ -108,7 +120,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenForm, onGoToTrac
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           
           {/* Right Column: Hero Headline & Text */}
-          <div className="lg:col-span-7 space-y-6 text-right">
+          <div className="lg:col-span-7 space-y-6">
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-tight text-white">
               استعلام آنلاین، ارسال مدارک و <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-emerald-300 to-amber-200">
@@ -117,11 +129,64 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenForm, onGoToTrac
             </h1>
 
             <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal max-w-2xl">
-              بدون نیاز به مراجعه حضوری! فرم استعلام را پر کنید، تصویر مدارک (کارت خودرو یا بیمه‌نامه قبلی) را بارگذاری نمایید تا کارشناسان رسمی نمایندگی گلزار (کد ۳۰۹۶۲) پس از بررسی دقیق، جهت صدور و ارسال بیمه‌نامه با شما تماس بگیرند.
+              بدون نیاز به مراجعه حضوری! فرم استعلام را پر کنید، تصویر مدارک را بارگذاری نمایید تا کارشناسان رسمی نمایندگی گلزار (کد ۳۰۹۶۲) پس از بررسی دقیق، جهت صدور و ارسال بیمه‌نامه با شما تماس بگیرند.
             </p>
 
+            {/* Authentication Action Segment */}
+            <div className="bg-emerald-950/75 border-2 border-emerald-500/20 rounded-2xl p-5 space-y-4 max-w-2xl">
+              {currentUser ? (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-emerald-300 font-bold">حساب کاربری فعال:</p>
+                    <p className="text-sm font-black text-white flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                      {currentUser.fullName} ({currentUser.role === 'admin' ? '🛡️ کارشناس نمایندگی' : '👤 مشتری'})
+                    </p>
+                  </div>
+                  <button
+                    onClick={onGoToDashboard}
+                    className="px-5 py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1 transition-all"
+                  >
+                    <span>ورود به میز کار و پیگیری سفارشات</span>
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs font-extrabold text-amber-300">👋 جهت ثبت پیگیری سفارشات و دریافت فایل بیمه‌نامه ابتدا وارد حساب خود شوید:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    
+                    {/* User Login */}
+                    <button
+                      onClick={() => onOpenLoginModal('user')}
+                      className="p-4 bg-emerald-800 hover:bg-emerald-750 text-white rounded-xl border border-emerald-600 transition-all flex items-center justify-between shadow-md"
+                    >
+                      <div className="text-right">
+                        <p className="font-extrabold text-xs">ورود کاربران متقاضی</p>
+                        <p className="text-[10px] text-emerald-200">ثبت‌نام مستقیم و مشاهده پیش‌نویس‌ها</p>
+                      </div>
+                      <User className="w-5 h-5 text-amber-400" />
+                    </button>
+
+                    {/* Admin Login */}
+                    <button
+                      onClick={() => onOpenLoginModal('admin')}
+                      className="p-4 bg-slate-900 hover:bg-slate-850 text-white rounded-xl border border-slate-800 transition-all flex items-center justify-between shadow-md"
+                    >
+                      <div className="text-right">
+                        <p className="font-extrabold text-xs">ورود مدیران و همکاران</p>
+                        <p className="text-[10px] text-slate-400">پنل کارشناسی، آمار و مدیریت کاربران</p>
+                      </div>
+                      <Lock className="w-5 h-5 text-amber-400" />
+                    </button>
+
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Highlights Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 text-xs font-medium text-emerald-100">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 text-xs font-medium text-emerald-100 max-w-2xl">
               <div className="flex items-center gap-2 bg-emerald-900/40 border border-emerald-800/60 p-2.5 rounded-lg">
                 <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
                 <span>ارسال آسان مدارک آنلاین</span>

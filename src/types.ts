@@ -69,6 +69,17 @@ export interface AgencyInfo {
   email: string;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  username: string;
+  fullName: string;
+  mobile: string;
+  nationalId?: string;
+  role: 'user' | 'admin';
+  createdAt: string;
+}
+
 export const IRAN_BIMEH_AGENCY: AgencyInfo = {
   code: '30962',
   name: 'نمایندگی گلزار',

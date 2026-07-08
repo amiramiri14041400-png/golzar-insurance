@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { Inquiry, SmsLog, IRAN_BIMEH_AGENCY } from './src/types.js';
+import { Inquiry, SmsLog, IRAN_BIMEH_AGENCY, User } from './src/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,6 +79,43 @@ let smsLogsStore: SmsLog[] = [
   }
 ];
 
+interface UserStoreItem {
+  id: string;
+  email: string;
+  username: string;
+  passwordHash: string;
+  fullName: string;
+  mobile: string;
+  nationalId?: string;
+  role: 'user' | 'admin';
+  createdAt: string;
+}
+
+let usersStore: UserStoreItem[] = [
+  {
+    id: 'user-admin',
+    email: 'sadegh@golzar.ir',
+    username: 'sadegh',
+    passwordHash: '123456',
+    fullName: 'صادق گلزار (مدیر)',
+    mobile: '09123456789',
+    nationalId: '0012345678',
+    role: 'admin',
+    createdAt: '1403/01/01 - 08:00'
+  },
+  {
+    id: 'user-1',
+    email: 'user@gmail.com',
+    username: 'user@gmail.com',
+    passwordHash: '123456',
+    fullName: 'امیر امیری',
+    mobile: '09121112233',
+    nationalId: '0078912345',
+    role: 'user',
+    createdAt: '1403/04/10 - 10:15'
+  }
+];
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -90,6 +127,153 @@ async function startServer() {
     const d = new Date();
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} - ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
+
+  // Auth API: Login
+  app.post('/api/auth/login', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'نام کاربری و رمز عبور الزامی است.' });
+    }
+
+    const user = usersStore.find(u => 
+      (u.username.toLowerCase() === username.toLowerCase() || u.email.toLowerCase() === username.toLowerCase()) && 
+      u.passwordHash === password
+    );
+
+    if (!user) {
+      return res.status(401).json({ error: 'نام کاربری یا رمز عبور اشتباه است.' });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        fullName: user.fullName,
+        mobile: user.mobile,
+        nationalId: user.nationalId,
+        role: user.role,
+        createdAt: user.createdAt
+      }
+    });
+  });
+
+  // Auth API: Register
+  app.post('/api/auth/register', (req, res) => {
+    const { email, password, fullName, mobile, nationalId } = req.body;
+    if (!email || !password || !fullName || !mobile) {
+      return res.status(400).json({ error: 'وارد کردن فیلدهای ستاره‌دار الزامی است.' });
+    }
+
+    const existingUser = usersStore.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existingUser) {
+      return res.status(400).json({ error: 'کاربری با این ایمیل قبلاً ثبت‌نام کرده است.' });
+    }
+
+    const newUser: UserStoreItem = {
+      id: `user-${Date.now()}`,
+      email: email,
+      username: email,
+      passwordHash: password,
+      fullName,
+      mobile,
+      nationalId,
+      role: 'user',
+      createdAt: getPersianDateStr()
+    };
+
+    usersStore.push(newUser);
+
+    res.status(201).json({
+      success: true,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        username: newUser.username,
+        fullName: newUser.fullName,
+        mobile: newUser.mobile,
+        nationalId: newUser.nationalId,
+        role: newUser.role,
+        createdAt: newUser.createdAt
+      }
+    });
+  });
+
+  // User inquiries filtering
+  app.get('/api/my-inquiries', (req, res) => {
+    const { mobile, nationalId } = req.query;
+    if (!mobile && !nationalId) {
+      return res.status(400).json({ error: 'شماره موبایل یا کد ملی جهت استعلام الزامی است.' });
+    }
+
+    const filtered = inquiriesStore.filter(inq => 
+      (mobile && inq.mobile === mobile) || 
+      (nationalId && inq.nationalId === nationalId)
+    );
+
+    res.json(filtered);
+  });
+
+  // Admin API: Get all users
+  app.get('/api/users', (req, res) => {
+    const safeUsers = usersStore.map(u => ({
+      id: u.id,
+      email: u.email,
+      username: u.username,
+      fullName: u.fullName,
+      mobile: u.mobile,
+      nationalId: u.nationalId,
+      role: u.role,
+      createdAt: u.createdAt
+    }));
+    res.json(safeUsers);
+  });
+
+  // Admin API: Create User manually
+  app.post('/api/users', (req, res) => {
+    const { email, username, password, fullName, mobile, nationalId, role } = req.body;
+    if (!email || !password || !fullName || !mobile) {
+      return res.status(400).json({ error: 'فیلدهای الزامی خالی هستند.' });
+    }
+
+    const existingUser = usersStore.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existingUser) {
+      return res.status(400).json({ error: 'کاربری با این ایمیل قبلاً ثبت شده است.' });
+    }
+
+    const newUser: UserStoreItem = {
+      id: `user-${Date.now()}`,
+      email,
+      username: username || email,
+      passwordHash: password,
+      fullName,
+      mobile,
+      nationalId,
+      role: role || 'user',
+      createdAt: getPersianDateStr()
+    };
+
+    usersStore.push(newUser);
+    res.status(201).json({ success: true, user: newUser });
+  });
+
+  // Admin API: Delete User
+  app.delete('/api/users/:id', (req, res) => {
+    const { id } = req.params;
+    const userIndex = usersStore.findIndex(u => u.id === id);
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'کاربر پیدا نشد.' });
+    }
+
+    const user = usersStore[userIndex];
+    if (user.username === 'sadegh') {
+      return res.status(400).json({ error: 'مدیر ارشد سیستم قابل حذف نیست.' });
+    }
+
+    usersStore.splice(userIndex, 1);
+    res.json({ success: true, message: 'کاربر با موفقیت حذف شد.' });
+  });
 
   // Helper: Generate tracking code
   const generateTrackingCode = () => {
