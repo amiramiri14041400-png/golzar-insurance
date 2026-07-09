@@ -1,51 +1,45 @@
 #!/bin/bash
-# این اسکریپت برای تست بیلد پروژه و ارسال خودکار کدهای جدید به گیت‌هاب شماست.
+# This script tests the build and pushes the changes to GitHub.
 
 echo "============================================"
-echo "🎯 شروع فرآیند تست و ارسال پروژه به گیت‌هاب..."
+echo "Starting deployment check and git push..."
 echo "============================================"
 
-# ۱. نصب پیش‌نیازها در صورت عدم وجود
-echo "📦 در حال نصب پکیج‌های پروژه..."
+echo "Checking and installing packages..."
 npm install
 
-# ۲. تست بیلد لوکال برای اطمینان از سلامت کدهای فرانت‌اند (پوشه dist)
-echo "🛠️ در حال تست بیلد فرانت‌اند..."
+echo "Building front-end project..."
 npm run build:pages
 
 if [ $? -ne 0 ]; then
-    echo "❌ خطا: بیلد پروژه با شکست مواجه شد! لطفاً خطاها را بررسی کنید."
+    echo "Error: Build failed! Please inspect logs."
     exit 1
 fi
 
-echo "✅ تست بیلد با موفقیت انجام شد و پوشه dist ساخته شد."
+echo "Build completed successfully. Folder 'dist' is ready."
 
-# ۳. بررسی وضعیت گیت
 if [ ! -d ".git" ]; then
-    echo "⚠️ اخطار: این پوشه هنوز یک ریپوزیتوری گیت نیست. در حال راه‌اندازی گیت..."
+    echo "Git repository not found. Initializing git..."
     git init
-    # اینجا کاربر باید آدرس ریپوزیتوری خود را وارد کند، اما اگر از قبل کلون کرده باشد این پوشه وجود دارد.
 fi
 
-# ۴. ارسال کدهای جدید به گیت‌هاب
-echo "📤 در حال آماده‌سازی و ارسال کدها به گیت‌هاب..."
+echo "Staging and committing changes..."
 git add .
 git commit -m "Update website from AI Studio (Vite + React)"
 
-# دریافت نام شاخه پیش‌فرض (معمولاً main یا master)
 BRANCH=$(git branch --show-current)
 if [ -z "$BRANCH" ]; then
     BRANCH="main"
 fi
 
-echo "🚀 در حال پوش کردن به شاخه $BRANCH..."
+echo "Pushing to branch: $BRANCH..."
 git push origin $BRANCH
 
 if [ $? -eq 0 ]; then
     echo "============================================"
-    echo "🎉 عالیه! پروژه‌تون با موفقیت به گیت‌هاب ارسال شد."
-    echo "حالا کلودفلر به طور خودکار شروع به بیلد و انتشار می‌کنه."
+    echo "Success! Your project was pushed to GitHub."
+    echo "Cloudflare will build and publish it shortly."
     echo "============================================"
 else
-    echo "❌ خطا در ارسال به گیت‌هاب. مطمئن شوید که دسترسی‌های لازم را دارید."
+    echo "Error: Failed to push to GitHub. Check connection or remote repo settings."
 fi
