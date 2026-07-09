@@ -33,10 +33,68 @@ for /f "tokens=*" %%i in ('git branch --show-current') do set BRANCH=%%i
 
 echo Pushing to branch: %BRANCH%...
 git push origin %BRANCH%
-if errorlevel 1 goto PUSH_ERROR
+if errorlevel 1 goto PUSH_FAILED
 
 echo ============================================
 echo Success! Your project was pushed to GitHub.
+echo Cloudflare will build and publish it shortly.
+echo ============================================
+goto END_SCRIPT
+
+:PUSH_FAILED
+echo.
+echo ============================================
+echo  Git Push Rejected!
+echo ============================================
+echo This usually happens because the remote repository (GitHub) has commits
+echo that you do not have locally.
+echo.
+echo What would you like to do?
+echo [1] Try to pull remote changes and merge (Safe)
+echo [2] Force Push (Overwrites GitHub with your current local files - recommended if AI Studio is your source of truth)
+echo [3] Exit
+echo.
+
+set choice=
+set /p choice="Enter option (1, 2, or 3): "
+
+if "%choice%"=="1" goto PULL_AND_PUSH
+if "%choice%"=="2" goto FORCE_PUSH
+goto PAUSE_END
+
+:PULL_AND_PUSH
+echo.
+echo Trying to pull remote changes...
+git pull origin %BRANCH% --no-rebase
+if errorlevel 1 (
+    echo.
+    echo Error: Pull failed due to conflicts. Please resolve them manually.
+    goto PAUSE_END
+)
+echo.
+echo Pull succeeded! Retrying push...
+git push origin %BRANCH%
+if errorlevel 1 goto PUSH_ERROR
+echo ============================================
+echo Success! Your project was pushed to GitHub.
+echo Cloudflare will build and publish it shortly.
+echo ============================================
+goto END_SCRIPT
+
+:FORCE_PUSH
+echo.
+echo Warning: This will overwrite files on GitHub!
+set /p confirm="Are you sure you want to force push? (Y/N): "
+if /i "%confirm%"=="Y" goto FORCE_PUSH_DO
+echo Cancelled.
+goto PAUSE_END
+
+:FORCE_PUSH_DO
+echo Force pushing to branch %BRANCH%...
+git push origin %BRANCH% --force
+if errorlevel 1 goto PUSH_ERROR
+echo ============================================
+echo Success! Your project was force-pushed to GitHub.
 echo Cloudflare will build and publish it shortly.
 echo ============================================
 goto END_SCRIPT
