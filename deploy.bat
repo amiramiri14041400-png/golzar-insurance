@@ -2,6 +2,9 @@
 rem This script tests the build and pushes the changes to GitHub.
 chcp 65001 > nul
 
+rem Ensure the script runs in the directory of the batch file itself
+cd /d "%~dp0"
+
 echo ============================================
 echo Starting deployment check and git push...
 echo ============================================

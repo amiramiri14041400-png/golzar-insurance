@@ -461,10 +461,10 @@ const simulateApi = (urlStr: string, options: any): Response | null => {
 };
 
 // Original fetch pointer
-const originalFetch = window.fetch;
+const originalFetch = window.fetch ? window.fetch.bind(window) : fetch.bind(globalThis);
 
-// Intercept window.fetch
-window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+// Intercept window.fetch safely
+const customFetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
   // Only intercept API calls starting with /api/
@@ -494,6 +494,37 @@ window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Pr
   // Non-API calls: pass through to original fetch
   return originalFetch(input, init);
 };
+
+// Safe interception helper
+const interceptFetch = () => {
+  try {
+    Object.defineProperty(window, 'fetch', {
+      value: customFetch,
+      writable: true,
+      configurable: true
+    });
+  } catch (e) {
+    try {
+      window.fetch = customFetch;
+    } catch (err) {
+      console.warn('Could not intercept window.fetch directly:', err);
+    }
+  }
+
+  try {
+    if (typeof globalThis !== 'undefined' && globalThis !== window) {
+      Object.defineProperty(globalThis, 'fetch', {
+        value: customFetch,
+        writable: true,
+        configurable: true
+      });
+    }
+  } catch (e) {
+    // Ignore globalThis error if already handled
+  }
+};
+
+interceptFetch();
 
 // Auto-run on load
 initLocalStorage();
