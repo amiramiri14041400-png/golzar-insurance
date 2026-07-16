@@ -16,7 +16,7 @@ export type InquiryStatus =
 
 export interface UploadedDocument {
   id: string;
-  type: 'car_card_front' | 'car_card_back' | 'prev_policy' | 'national_card' | 'driving_license' | 'other';
+  type: 'car_card_front' | 'car_card_back' | 'prev_policy' | 'national_card' | 'driving_license' | 'other' | string;
   label: string;
   fileUrl: string;
   fileName: string;
@@ -77,6 +77,18 @@ export interface User {
   mobile: string;
   nationalId?: string;
   role: 'user' | 'admin';
+  createdAt: string;
+}
+
+export interface CustomField {
+  id: string;
+  insuranceType: string;
+  label: string;
+  type: 'file_image_or_pdf' | 'file_image' | 'file_pdf' | 'text' | 'number' | 'select';
+  required: boolean;
+  digitCount?: number;
+  placeholder?: string;
+  options?: string[];
   createdAt: string;
 }
 

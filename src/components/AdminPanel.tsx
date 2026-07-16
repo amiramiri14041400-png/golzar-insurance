@@ -29,16 +29,18 @@ import {
   Layers,
   LineChart,
   Percent,
-  Check
+  Check,
+  Settings2
 } from 'lucide-react';
 import { Inquiry, InquiryStatus, SmsLog, IRAN_BIMEH_AGENCY, User } from '../types';
+import { FormsManagementPanel } from './FormsManagementPanel';
 
 interface AdminPanelProps {
   onOpenNewInquiry: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onOpenNewInquiry }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'inquiries' | 'users' | 'dashboard'>('inquiries');
+  const [activeSubTab, setActiveSubTab] = useState<'inquiries' | 'users' | 'dashboard' | 'forms'>('inquiries');
   
   // Inquiries State
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
@@ -338,6 +340,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onOpenNewInquiry }) => {
         >
           <BarChart3 className="w-4.5 h-4.5" />
           <span>داشبورد گزارشات و آمار کلی</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('forms')}
+          className={`flex-1 py-3 px-4 rounded-xl text-center flex items-center justify-center gap-2 transition-all ${
+            activeSubTab === 'forms'
+              ? 'bg-emerald-900 text-white shadow'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+          }`}
+        >
+          <FileText className="w-4.5 h-4.5" />
+          <span>⚙️ مدیریت فرم‌ها و مدارک</span>
         </button>
       </div>
 
@@ -752,6 +766,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onOpenNewInquiry }) => {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* SUBTAB CONTENT 4: CUSTOM FORMS MANAGEMENT */}
+      {activeSubTab === 'forms' && (
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border shadow-md space-y-6">
+          <div className="border-b pb-4">
+            <h3 className="text-lg font-black text-slate-900">مدیریت فیلدها و مدارک اختصاصی رشته‌های بیمه</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              در این پنل می‌توانید ردیف‌های مدارک و فیلدهای ورودی هر کدام از رشته‌های بیمه‌ای را برای اخذ مستندات از مشتری به‌صورت پویا مدیریت کنید.
+            </p>
+          </div>
+          <FormsManagementPanel />
         </div>
       )}
 

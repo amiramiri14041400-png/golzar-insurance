@@ -47,11 +47,30 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [insuranceType, setInsuranceType] = useState<InsuranceType>(initialType);
+  const [customFields, setCustomFields] = useState<any[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
 
   useEffect(() => {
     setInsuranceType(initialType);
     setStep(1);
   }, [initialType, isOpen]);
+
+  useEffect(() => {
+    const fetchCustomFields = async () => {
+      try {
+        const res = await fetch('/api/custom-fields');
+        if (res.ok) {
+          const data = await res.json();
+          setCustomFields(data);
+        }
+      } catch (err) {
+        console.error('Error fetching custom fields in modal:', err);
+      }
+    };
+    if (isOpen) {
+      fetchCustomFields();
+    }
+  }, [isOpen]);
 
   // Form Field States
   // 1. Third Party
@@ -98,6 +117,7 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
   const [submittedCode, setSubmittedCode] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
+  const [step2Error, setStep2Error] = useState('');
 
   if (!isOpen) return null;
 
@@ -140,10 +160,14 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
           planType: healthPlan,
           ageCategory: healthAge,
           personCount: healthPersonCount,
-          hasDental: healthDental
+          hasDental: healthDental,
+          occupation: 'آزاد',
+          jobRiskCategory: 1,
+          paymentMode: 'cash',
+          installmentCount: 4
         });
       default:
-        return { finalPremiumTomans: 3500000 };
+        return { finalPremium: 3500000 };
     }
   };
 
@@ -179,6 +203,38 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
     setDocuments(prev => prev.filter(d => d.id !== id));
   };
 
+  const handleNextToStep2 = () => {
+    setErrorMsg('');
+    const step1CustomFields = customFields.filter(f => f.insuranceType === insuranceType && (f.type === 'text' || f.type === 'number' || f.type === 'select'));
+    for (const f of step1CustomFields) {
+      const val = customFieldValues[f.id] || '';
+      if (f.required && !val.trim()) {
+        setErrorMsg(`لطفاً فیلد "${f.label}" را تکمیل کنید.`);
+        return;
+      }
+      if (val.trim() && f.digitCount && val.length !== f.digitCount) {
+        setErrorMsg(`فیلد "${f.label}" باید دقیقاً ${f.digitCount} رقم باشد.`);
+        return;
+      }
+    }
+    setStep(2);
+  };
+
+  const handleNextToStep3 = () => {
+    setErrorMsg('');
+    const step2CustomFields = customFields.filter(f => f.insuranceType === insuranceType && f.type.startsWith('file'));
+    for (const f of step2CustomFields) {
+      if (f.required) {
+        const hasUploaded = documents.some(d => d.label === f.label);
+        if (!hasUploaded) {
+          setErrorMsg(`لطفاً مدرک "${f.label}" را بارگذاری کنید.`);
+          return;
+        }
+      }
+    }
+    setStep(3);
+  };
+
   // Submit Handler
   const handleSubmitInquiry = async () => {
     setErrorMsg('');
@@ -192,11 +248,33 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
       return;
     }
 
+    // Validate custom fields
+    const step3CustomFields = customFields.filter(f => f.insuranceType === insuranceType && (f.type === 'text' || f.type === 'number' || f.type === 'select'));
+    for (const f of step3CustomFields) {
+      const val = String(customFieldValues[f.id] || '').trim();
+      if (f.required && !val) {
+        setErrorMsg(`لطفاً فیلد «${f.label}» را تکمیل کنید.`);
+        return;
+      }
+      if (val && f.digitCount && val.length !== f.digitCount) {
+        setErrorMsg(`فیلد «${f.label}» باید دقیقاً ${f.digitCount} رقم باشد.`);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
+
+    const customFieldsData: Record<string, any> = {};
+    customFields
+      .filter(f => f.insuranceType === insuranceType && (f.type === 'text' || f.type === 'number' || f.type === 'select'))
+      .forEach(f => {
+        customFieldsData[f.label] = customFieldValues[f.id] || '';
+      });
 
     const formDataDetails = {
       insuranceType,
-      estimatedPriceTomans: currentQuote.finalPremiumTomans,
+      estimatedPriceTomans: currentQuote.finalPremium,
+      customFields: customFieldsData,
       details: insuranceType === 'third_party' ? {
         vehicleType: tpVehicleType === 'passenger_4cyl' ? 'سواری ۴ سیلندر' : 'سواری ۶ سیلندر',
         modelYear: tpModelYear,
@@ -249,6 +327,22 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
       setIsSubmitting(false);
       setErrorMsg('خطا در ارتباط با سرور. لطفاً اتصال اینترنت خود را بررسی نمایید.');
     }
+  };
+
+  const handleProceedToStep3 = () => {
+    setStep2Error('');
+    const requiredCustomFiles = customFields.filter(
+      (f: any) => f.insuranceType === insuranceType && f.type.startsWith('file') && f.required
+    );
+    const missingFields = requiredCustomFiles.filter(
+      (field: any) => !documents.some(doc => doc.type === field.id)
+    );
+    
+    if (missingFields.length > 0) {
+      setStep2Error(`لطفاً مدرک «${missingFields[0].label}» را بارگذاری نمایید.`);
+      return;
+    }
+    setStep(3);
   };
 
   const copyToClipboard = (text: string) => {
@@ -614,6 +708,59 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
                 </div>
               )}
 
+              {/* Dynamic Custom Input Fields configured by Managers */}
+              {customFields.filter(f => f.insuranceType === insuranceType && (f.type === 'text' || f.type === 'number' || f.type === 'select')).length > 0 && (
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4 text-xs">
+                  <h3 className="text-xs font-black text-slate-900 border-b border-slate-200 pb-2 flex items-center justify-between">
+                    <span>اطلاعات تکمیلی الزامی</span>
+                    <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">تعیین شده توسط مدیریت</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {customFields.filter(f => f.insuranceType === insuranceType && (f.type === 'text' || f.type === 'number' || f.type === 'select')).map((f) => (
+                      <div key={f.id} className="space-y-1">
+                        <label className="block font-bold text-slate-700">
+                          {f.label} {f.required && <span className="text-rose-500">*</span>}:
+                        </label>
+                        {f.type === 'select' ? (
+                          <select
+                            value={customFieldValues[f.id] || ''}
+                            onChange={(e) => setCustomFieldValues(prev => ({ ...prev, [f.id]: e.target.value }))}
+                            className="w-full bg-white border border-slate-300 rounded-lg p-2.5 font-bold"
+                          >
+                            <option value="">-- انتخاب کنید --</option>
+                            {f.options && f.options.map((opt: string, i: number) => (
+                              <option key={i} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            placeholder={f.placeholder || f.label}
+                            value={customFieldValues[f.id] || ''}
+                            onChange={(e) => {
+                              let val = e.target.value;
+                              if (f.type === 'number') {
+                                val = val.replace(/\D/g, '');
+                              }
+                              if (f.digitCount && val.length > f.digitCount) {
+                                val = val.slice(0, f.digitCount);
+                              }
+                              setCustomFieldValues(prev => ({ ...prev, [f.id]: val }));
+                            }}
+                            className="w-full bg-white border border-slate-300 rounded-lg p-2.5 font-bold"
+                          />
+                        )}
+                        {f.digitCount && (
+                          <p className="text-[10px] text-slate-500 font-bold">
+                            باید دقیقاً {f.digitCount} رقم باشد {customFieldValues[f.id] ? `(${customFieldValues[f.id].length} رقم وارد شده)` : ''}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Dynamic Price Display Box */}
               <div className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 text-white p-5 rounded-2xl shadow-xl border border-emerald-700/50 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="space-y-1 text-center sm:text-right">
@@ -629,7 +776,7 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
                 <div className="text-center sm:text-left shrink-0 bg-white/10 backdrop-blur px-5 py-3 rounded-xl border border-white/20">
                   <span className="text-xs text-emerald-300 block">حق‌بیمه برآوردی سالیانه:</span>
                   <div className="text-2xl sm:text-3xl font-black text-amber-300 tracking-tight">
-                    {currentQuote.finalPremiumTomans.toLocaleString('fa-IR')} <span className="text-xs font-normal text-white">تومان</span>
+                    {currentQuote.finalPremium.toLocaleString('fa-IR')} <span className="text-xs font-normal text-white">تومان</span>
                   </div>
                 </div>
               </div>
@@ -639,7 +786,7 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
                 <span className="text-xs text-slate-500">مرحله ۱ از ۳</span>
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={handleNextToStep2}
                   className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm px-6 py-3 rounded-xl transition-all shadow-md shadow-emerald-900/20"
                 >
                   <span>مرحله بعدی: بارگذاری مدارک</span>
@@ -710,6 +857,68 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
 
               </div>
 
+              {/* Custom Document Input Slots */}
+              {customFields.filter((f: any) => f.insuranceType === insuranceType && f.type.startsWith('file')).length > 0 && (
+                <div className="space-y-3 pt-3">
+                  <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5 border-b pb-2">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <span>مدارک اختصاصی مورد نیاز جهت بررسی پرونده:</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {customFields
+                      .filter((f: any) => f.insuranceType === insuranceType && f.type.startsWith('file'))
+                      .map((field: any) => {
+                        const hasUploaded = documents.some(doc => doc.type === field.id);
+                        const uploadedDoc = documents.find(doc => doc.type === field.id);
+                        return (
+                          <div 
+                            key={field.id} 
+                            className={`border-2 border-dashed rounded-2xl p-4 text-center transition-all ${
+                              hasUploaded 
+                                ? 'border-emerald-500 bg-emerald-50/50 font-bold' 
+                                : 'border-slate-300 hover:border-emerald-500 bg-slate-50'
+                            }`}
+                          >
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 ${
+                              hasUploaded ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-650'
+                            }`}>
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <h4 className="font-bold text-xs text-slate-800 mb-0.5">
+                              {field.label} {field.required && <span className="text-rose-500">*</span>}
+                            </h4>
+                            <p className="text-[10px] text-slate-500 mb-2">
+                              {field.placeholder || `فرمت مورد قبول: ${field.type === 'file_pdf' ? 'فقط PDF' : field.type === 'file_image' ? 'فقط تصویر' : 'تصویر یا PDF'}`}
+                            </p>
+
+                            <div className="flex flex-col items-center gap-2">
+                              <label className={`cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg transition-all shadow ${
+                                hasUploaded 
+                                  ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 shadow-none' 
+                                  : 'bg-emerald-800 hover:bg-emerald-900 text-white'
+                              }`}>
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>{hasUploaded ? 'تغییر فایل' : 'انتخاب فایل'}</span>
+                                <input 
+                                  type="file" 
+                                  accept={field.type === 'file_pdf' ? '.pdf' : field.type === 'file_image' ? 'image/*' : 'image/*,.pdf'} 
+                                  className="hidden"
+                                  onChange={(e) => handleFileUpload(e, field.id, field.label)}
+                                />
+                              </label>
+                              {hasUploaded && (
+                                <span className="text-[10px] text-emerald-700 font-extrabold flex items-center gap-1 bg-white border border-emerald-200 px-2 py-0.5 rounded-full">
+                                  ✓ بارگذاری شد: {uploadedDoc?.fileName} ({uploadedDoc?.fileSize})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
               {/* Uploaded Files List */}
               {documents.length > 0 && (
                 <div className="space-y-2">
@@ -751,7 +960,7 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setStep(3)}
+                  onClick={handleNextToStep3}
                   className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm px-6 py-3 rounded-xl transition-all shadow-md"
                 >
                   <span>مرحله بعدی: اطلاعات تماس</span>
@@ -847,6 +1056,48 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
                     className="w-full bg-white border border-slate-300 rounded-lg p-2.5 font-medium"
                   />
                 </div>
+
+                {/* Dynamic non-file fields */}
+                {customFields
+                  .filter((f: any) => f.insuranceType === insuranceType && !f.type.startsWith('file'))
+                  .map((field: any) => (
+                    <div key={field.id} className={field.type === 'text' && !field.digitCount ? 'sm:col-span-2' : ''}>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        {field.label} {field.required && <span className="text-rose-500">*</span>}:
+                      </label>
+                      
+                      {field.type === 'select' ? (
+                        <select
+                          value={customFieldValues[field.id] || ''}
+                          onChange={(e) => setCustomFieldValues(prev => ({ ...prev, [field.id]: e.target.value }))}
+                          className="w-full bg-white border border-slate-300 rounded-lg p-2.5 font-medium text-xs"
+                        >
+                          <option value="">انتخاب کنید...</option>
+                          {(field.options || []).map((opt: string) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder={field.placeholder || (field.digitCount ? `مثال: ${'9'.repeat(field.digitCount)}` : '')}
+                          value={customFieldValues[field.id] || ''}
+                          onChange={(e) => {
+                            let val = e.target.value;
+                            if (field.type === 'number') {
+                              // keep only digits
+                              val = val.replace(/\D/g, '');
+                              if (field.digitCount && val.length > field.digitCount) {
+                                val = val.slice(0, field.digitCount);
+                              }
+                            }
+                            setCustomFieldValues(prev => ({ ...prev, [field.id]: val }));
+                          }}
+                          className="w-full bg-white border border-slate-300 rounded-lg p-2.5 font-medium text-right"
+                        />
+                      )}
+                    </div>
+                  ))}
               </div>
 
               {/* Order Summary Summary Box */}
@@ -864,7 +1115,7 @@ export const InsuranceFormModal: React.FC<InsuranceFormModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span>مبلغ برآوردی:</span>
                   <span className="font-extrabold text-amber-300 text-sm">
-                    {currentQuote.finalPremiumTomans.toLocaleString('fa-IR')} تومان
+                    {currentQuote.finalPremium.toLocaleString('fa-IR')} تومان
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-slate-300">

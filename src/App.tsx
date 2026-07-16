@@ -31,6 +31,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'track' | 'admin' | 'supabase' | 'user_dashboard'>('home');
   const [selectedInsuranceType, setSelectedInsuranceType] = useState<InsuranceType>('third_party');
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [initialPremiumOverride, setInitialPremiumOverride] = useState<number | null>(null);
+  const [prefilledFields, setPrefilledFields] = useState<any>(null);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [searchTrackingQuery, setSearchTrackingQuery] = useState('');
   const [isConsultantOpen, setIsConsultantOpen] = useState(false);
@@ -50,7 +52,17 @@ export default function App() {
 
   const handleOpenForm = (type: InsuranceType) => {
     setSelectedInsuranceType(type);
+    setInitialPremiumOverride(null);
+    setPrefilledFields(null);
     setIsFormModalOpen(true);
+  };
+
+  const handleConfirmAndIssue = (type: InsuranceType, premium: number, args?: any) => {
+    setSelectedInsuranceType(type);
+    setInitialPremiumOverride(premium);
+    setPrefilledFields(args);
+    setIsFormModalOpen(true);
+    setIsConsultantOpen(false);
   };
 
   const handleSuccessSubmitted = (trackingCode: string) => {
@@ -321,6 +333,8 @@ export default function App() {
         onClose={() => setIsFormModalOpen(false)}
         initialType={selectedInsuranceType}
         onSuccessSubmit={handleSuccessSubmitted}
+        initialPremiumOverride={initialPremiumOverride}
+        prefilledFields={prefilledFields}
       />
 
       {/* Supabase Setup Modal */}
@@ -360,6 +374,7 @@ export default function App() {
       <AiConsultantDrawer
         isOpen={isConsultantOpen}
         onClose={() => setIsConsultantOpen(false)}
+        onConfirmAndIssue={handleConfirmAndIssue}
       />
 
       {/* Footer */}
