@@ -463,15 +463,63 @@ const simulateApi = (urlStr: string, options: any): Response | null => {
 // Original fetch pointer
 const originalFetch = window.fetch ? window.fetch.bind(window) : fetch.bind(globalThis);
 
+// Determine the backend base URL dynamically
+const getBackendBaseUrl = (): string => {
+  // If VITE_API_URL is set as env, prioritize it
+  const envApiUrl = (import.meta as any).env?.VITE_API_URL;
+  if (envApiUrl) {
+    return envApiUrl.endsWith('/') ? envApiUrl.slice(0, -1) : envApiUrl;
+  }
+
+  // Check the current origin
+  const host = window.location.host;
+  // If we are already on localhost:3000 or a Cloud Run (.run.app) backend domain, do not append a base URL
+  if (host === 'localhost:3000' || host.includes('.run.app')) {
+    return '';
+  }
+
+  // Fallback to the known backend URL hosted on Cloud Run
+  return 'https://ais-pre-ctdazj5lnzhqj5mvwakjen-194046975421.europe-west2.run.app';
+};
+
 // Intercept window.fetch safely
 const customFetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
-  // Only intercept API calls starting with /api/
+  // Only intercept API calls starting with or containing /api/
   if (urlStr.includes('/api/')) {
+    const backendBase = getBackendBaseUrl();
+    let finalInput: RequestInfo | URL = input;
+
+    // Rewrite the URL if we have a defined backend base URL
+    if (backendBase) {
+      if (typeof input === 'string') {
+        if (input.startsWith('/api/')) {
+          finalInput = `${backendBase}${input}`;
+        } else if (input.includes('/api/')) {
+          try {
+            const parsedUrl = new URL(input);
+            finalInput = `${backendBase}${parsedUrl.pathname}${parsedUrl.search}`;
+          } catch (e) {
+            // keep it as is
+          }
+        }
+      } else if (input instanceof URL) {
+        finalInput = new URL(`${backendBase}${input.pathname}${input.search}`);
+      } else if (input && typeof input === 'object' && 'url' in input) {
+        try {
+          const parsedUrl = new URL((input as Request).url);
+          const newUrlStr = `${backendBase}${parsedUrl.pathname}${parsedUrl.search}`;
+          finalInput = newUrlStr;
+        } catch (e) {
+          // keep it as is
+        }
+      }
+    }
+
     try {
       // First try real fetch request to backend
-      const response = await originalFetch(input, init);
+      const response = await originalFetch(finalInput, init);
       
       // Try to parse the response as JSON to see if it's a valid API response
       let isValidJson = false;

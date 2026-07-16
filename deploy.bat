@@ -40,17 +40,19 @@ if /i "%inst_choice%"=="Y" (
 
 echo.
 echo ------------------------------------------------------
-echo STEP 2: Building Production Files
+echo STEP 2: Cleaning and Building Production Files
 echo ------------------------------------------------------
-set /p build_choice="Run npm run build:pages? Press Y to continue: "
+set /p build_choice="Clean old build and run build:pages? Press Y to continue: "
 if /i "%build_choice%"=="Y" (
+    echo Cleaning old build files...
+    call npm run clean
     echo Building website...
     call npm run build:pages
     if errorlevel 1 (
         echo Error: Build failed! Please review console errors.
         goto ERROR_PAUSE
     )
-    echo Build completed successfully! 'dist' folder is updated.
+    echo Build completed successfully! Fresh 'dist' folder is updated.
 ) else (
     echo Skipping build stage.
 )

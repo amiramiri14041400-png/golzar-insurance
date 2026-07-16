@@ -40,17 +40,19 @@ fi
 
 echo ""
 echo "------------------------------------------------------"
-echo "STEP 2: Building Production Files"
+echo "STEP 2: Cleaning and Building Production Files"
 echo "------------------------------------------------------"
-read -p "Run npm run build:pages? Press Y to continue: " build_choice
+read -p "Clean old build and run build:pages? Press Y to continue: " build_choice
 if [[ "$build_choice" =~ ^[Yy]$ ]]; then
+    echo "Cleaning old build files..."
+    npm run clean
     echo "Building website..."
     npm run build:pages
     if [ $? -ne 0 ]; then
         echo "Error: Build failed! Please review console errors."
         exit 1
     fi
-    echo "Build completed successfully! 'dist' folder is updated."
+    echo "Build completed successfully! Fresh 'dist' folder is updated."
 else
     echo "Skipping build stage."
 fi

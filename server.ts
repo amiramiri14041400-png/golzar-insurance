@@ -179,6 +179,17 @@ async function startServer() {
 
   app.use(express.json({ limit: '20mb' }));
 
+  // Simple custom CORS middleware to support external frontends (like Cloudflare Pages)
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   // Helper: Format Persian Jalali date simulation
   const getPersianDateStr = () => {
     const d = new Date();
