@@ -174,7 +174,7 @@ const simulateApi = (urlStr: string, options: any): Response | null => {
 
   // 1. Auth: Login
   if (path === '/api/auth/login' && method === 'POST') {
-    const { username, password } = JSON.parse(options.body || '{}');
+    const { username, password } = JSON.parse(options?.body || '{}');
     if (!username || !password) {
       return createMockResponse({ error: 'نام کاربری و رمز عبور الزامی است.' }, 400);
     }
@@ -203,7 +203,7 @@ const simulateApi = (urlStr: string, options: any): Response | null => {
 
   // 2. Auth: Register
   if (path === '/api/auth/register' && method === 'POST') {
-    const { email, password, fullName, mobile, nationalId } = JSON.parse(options.body || '{}');
+    const { email, password, fullName, mobile, nationalId } = JSON.parse(options?.body || '{}');
     if (!email || !password || !fullName || !mobile) {
       return createMockResponse({ error: 'وارد کردن فیلدهای ستاره‌دار الزامی است.' }, 400);
     }
@@ -273,7 +273,7 @@ const simulateApi = (urlStr: string, options: any): Response | null => {
 
   // 5. Admin Create user
   if (path === '/api/users' && method === 'POST') {
-    const { email, username, password, fullName, mobile, nationalId, role } = JSON.parse(options.body || '{}');
+    const { email, username, password, fullName, mobile, nationalId, role } = JSON.parse(options?.body || '{}');
     if (!email || !password || !fullName || !mobile) {
       return createMockResponse({ error: 'فیلدهای الزامی خالی هستند.' }, 400);
     }
@@ -326,7 +326,7 @@ const simulateApi = (urlStr: string, options: any): Response | null => {
 
   // 9. Inquiries: Create new
   if (path === '/api/inquiries' && method === 'POST') {
-    const { insuranceType, fullName, nationalId, mobile, province, city, address, formData, documents } = JSON.parse(options.body || '{}');
+    const { insuranceType, fullName, nationalId, mobile, province, city, address, formData, documents } = JSON.parse(options?.body || '{}');
     if (!fullName || !mobile || !nationalId) {
       return createMockResponse({ error: 'نام و نام خانوادگی، شماره ملی و شماره موبایل الزامی است.' }, 400);
     }
@@ -395,7 +395,7 @@ const simulateApi = (urlStr: string, options: any): Response | null => {
   if (path.startsWith('/api/inquiries/') && path.endsWith('/status') && method === 'PATCH') {
     const parts = path.split('/');
     const id = parts[parts.length - 2];
-    const { status, expertNotes, issuedPolicyUrl, sendSms } = JSON.parse(options.body || '{}');
+    const { status, expertNotes, issuedPolicyUrl, sendSms } = JSON.parse(options?.body || '{}');
 
     const inquiries = getInquiries();
     const inquiry = inquiries.find(i => i.id === id);
@@ -452,7 +452,7 @@ const simulateApi = (urlStr: string, options: any): Response | null => {
 
   // 13. AI Consultant
   if (path === '/api/ai-consultant' && method === 'POST') {
-    const { prompt } = JSON.parse(options.body || '{}');
+    const { prompt } = JSON.parse(options?.body || '{}');
     const reply = handleLocalAiConsultant(prompt || '');
     return createMockResponse({ response: reply });
   }
@@ -473,17 +473,42 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
       // First try real fetch request to backend
       const response = await originalFetch(input, init);
       
-      // If we get index.html (which is HTML, indicating static SPA route fallback from Cloudflare Pages)
-      // or if it returns 404/500 and is HTML, we intercept and run local simulation
-      const contentType = response.headers.get('Content-Type') || '';
-      if (contentType.includes('text/html')) {
-        const simulated = simulateApi(urlStr, init);
-        if (simulated) return simulated;
+      // Try to parse the response as JSON to see if it's a valid API response
+      let isValidJson = false;
+      try {
+        const clone = response.clone();
+        const text = await clone.text();
+        const trimmed = text.trim();
+        
+        // Ensure it is not empty and doesn't look like HTML
+        if (trimmed && 
+            !trimmed.startsWith('<!DOCTYPE') && 
+            !trimmed.startsWith('<html') && 
+            !trimmed.includes('<body') && 
+            !trimmed.includes('<script')) {
+          JSON.parse(trimmed); // Validate actual JSON structure
+          isValidJson = true;
+        }
+      } catch (e) {
+        // Parsing failed or wasn't JSON
+      }
+
+      // If the response is OK and is valid JSON, let it pass through
+      if (response.ok && isValidJson) {
+        return response;
+      }
+
+      // If response is not valid JSON, not OK, or is HTML/empty fallback, return simulation
+      const simulated = simulateApi(urlStr, init);
+      if (simulated) {
+        console.log(`[API Interceptor] Intercepted non-JSON or failed response for ${urlStr}, returned simulated data.`);
+        return simulated;
       }
       
       return response;
     } catch (error) {
       // If network error (e.g., completely offline or backend server not running), fall back to local storage simulation
+      console.warn(`[API Interceptor] Network error for ${urlStr}, falling back to simulation:`, error);
       const simulated = simulateApi(urlStr, init);
       if (simulated) return simulated;
       

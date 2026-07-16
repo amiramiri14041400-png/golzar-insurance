@@ -44,7 +44,7 @@ goto END_SCRIPT
 :PUSH_FAILED
 echo.
 echo ============================================
-echo  Git Push Rejected!
+echo ⚠️ Git Push Rejected!
 echo ============================================
 echo This usually happens because the remote repository (GitHub) has commits
 echo that you do not have locally.

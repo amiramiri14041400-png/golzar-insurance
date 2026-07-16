@@ -3,24 +3,31 @@ export const SUPABASE_SQL_SCHEMA = `-- =========================================
 -- Iran Insurance Golzar Agency Code 30962 (بیمه ایران نمایندگی گلزار ۳۰۹۶۲)
 -- ================================================================
 
--- 1. Create Enums for Insurance Type and Status
-CREATE TYPE insurance_type AS ENUM (
-  'third_party',
-  'body',
-  'fire',
-  'health',
-  'life',
-  'liability',
-  'travel'
-);
+-- 1. Create Enums for Insurance Type and Status (Safe idempotent check using DO block)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'insurance_type') THEN
+        CREATE TYPE insurance_type AS ENUM (
+          'third_party',
+          'body',
+          'fire',
+          'health',
+          'life',
+          'liability',
+          'travel'
+        );
+    END IF;
 
-CREATE TYPE inquiry_status AS ENUM (
-  'pending',
-  'in_progress',
-  'ready_for_issuance',
-  'issued',
-  'rejected'
-);
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'inquiry_status') THEN
+        CREATE TYPE inquiry_status AS ENUM (
+          'pending',
+          'in_progress',
+          'ready_for_issuance',
+          'issued',
+          'rejected'
+        );
+    END IF;
+END$$;
 
 -- 2. Create Inquiries Table (جدول درخواست‌های بیمه)
 CREATE TABLE IF NOT EXISTS public.inquiries (
@@ -80,6 +87,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_inquiries_updated_at ON public.inquiries;
 CREATE TRIGGER update_inquiries_updated_at
 BEFORE UPDATE ON public.inquiries
 FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
@@ -90,19 +98,24 @@ ALTER TABLE public.inquiry_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sms_logs ENABLE ROW LEVEL SECURITY;
 
 -- Allow anonymous users to INSERT new inquiries and READ their own inquiry via tracking_code
+DROP POLICY IF EXISTS "Allow public insert inquiries" ON public.inquiries;
 CREATE POLICY "Allow public insert inquiries" ON public.inquiries 
   FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public select inquiry by tracking_code or mobile" ON public.inquiries;
 CREATE POLICY "Allow public select inquiry by tracking_code or mobile" ON public.inquiries 
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Allow public insert documents" ON public.inquiry_documents;
 CREATE POLICY "Allow public insert documents" ON public.inquiry_documents 
   FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public select documents" ON public.inquiry_documents;
 CREATE POLICY "Allow public select documents" ON public.inquiry_documents 
   FOR SELECT USING (true);
 
 -- Allow full access to authenticated admin users
+DROP POLICY IF EXISTS "Allow admin all on inquiries" ON public.inquiries;
 CREATE POLICY "Allow admin all on inquiries" ON public.inquiries 
   FOR ALL USING (auth.role() = 'authenticated');
 
@@ -110,5 +123,6 @@ CREATE POLICY "Allow admin all on inquiries" ON public.inquiries
 INSERT INTO public.inquiries (tracking_code, insurance_type, full_name, national_id, mobile, province, city, status, form_data, expert_notes)
 VALUES 
 ('IR30962-84910', 'third_party', 'رضا حسینی پور', '۰۰۷۸۹۱۲۳۴۵', '09121112233', 'تهران', 'تهران', 'pending', '{"vehicleType": "پژو پارس TU5", "modelYear": "1401", "plateNumber": "55 ج 892 - ایران 77", "previousCompany": "بیمه ایران", "noClaimDiscount": "30% (3 سال)"}', 'مدارک کامل است و منتظر استعلام قیمت نهایی.'),
-('IR30962-73821', 'body', 'مریم ابراهیمی', '۱۲۹۴۵۶۷۸۹۰', '09123334455', 'اصفهان', 'اصفهان', 'in_progress', '{"vehicleType": "جک S5", "estimatedValue": "1,450,000,000 تومان"}', 'کارشناس بازدید هماهنگ شد.');
+('IR30962-73821', 'body', 'مریم ابراهیمی', '۱۲۹۴۵۶۷۸۹۰', '09123334455', 'اصفهان', 'اصفهان', 'in_progress', '{"vehicleType": "جک S5", "estimatedValue": "1,450,000,000 تومان"}', 'کارشناس بازدید هماهنگ شد.')
+ON CONFLICT (tracking_code) DO NOTHING;
 `;
