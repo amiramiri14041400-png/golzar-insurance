@@ -568,6 +568,26 @@ async function startServer() {
     res.json({ success: true, message: 'فیلد اختصاصی با موفقیت حذف شد.' });
   });
 
+  // Helper to robustly parse values into numbers, handling Persian/Arabic digits, commas, and formatting
+  function parseToCleanNumber(val: any, defaultVal = 0): number {
+    if (val === undefined || val === null) return defaultVal;
+    if (typeof val === 'number') {
+      return isNaN(val) ? defaultVal : val;
+    }
+    let str = String(val).trim();
+    // Convert Persian/Arabic digits to English digits
+    const persianDigits = [/۰/g, /۱/g, /۲/g, /۳/g, /۴/g, /۵/g, /۶/g, /۷/g, /۸/g, /۹/g];
+    const arabicDigits  = [/٠/g, /١/g, /٢/g, /٣/g, /٤/g, /٥/g, /٦/g, /٧/g, /٨/g, /٩/g];
+    for (let i = 0; i < 10; i++) {
+      str = str.replace(persianDigits[i], String(i)).replace(arabicDigits[i], String(i));
+    }
+    // Remove non-digit characters (including commas, spaces, letters, etc.)
+    str = str.replace(/[^\d]/g, '');
+    if (!str) return defaultVal;
+    const num = parseInt(str, 10);
+    return isNaN(num) ? defaultVal : num;
+  }
+
   // API 7: AI Insurance Assistant (Gemini API)
   app.post('/api/ai-consultant', async (req, res) => {
     try {
@@ -851,8 +871,7 @@ async function startServer() {
               text: `تو مشاور رسمی و متخصص بیمه ایران نمایندگی گلزار (کد ۳۰۹۶۲) هستی. پاسخ را به زبان فارسی روان، محترمانه، کاربردی و بر اساس آخرین بخشنامه‌ها و قوانین سال ۱۴۰۵ (۲۰۲۶ میلادی) بده.
 تاکید کن که نمایندگی گلزار کد ۳۰۹۶۲ امکان صدور آنلاین، تحویل فوری و مشاوره رایگان دارد.
 
-اگر کاربر اطلاعات لازم برای محاسبه (مانند نوع خودرو، سال ساخت، ارزش روز خودرو، ارزش ساخت ملک، شغل دقیق، سن یا طرح‌های نوین جام زرین/سما زرین) را ارائه کرده، تو حتماً باید تابع/ابزار مربوطه را با پارامترهای مناسب و دقیق صدا بزنی.
-اگر اطلاعات کامل نیست، حدود کلی را طبق قوانین ۱۴۰۵ ارائه بده و محترمانه پارامترهای گمشده را بپرس (به خصوص شغل برای بیمه‌های مسئولیت و حوادث، سال عدم خسارت برای خودرو، و روش پرداخت نقدی/اقساطی).
+قانون بسیار مهم و اجباری: برای هر سوالی که مربوط به نرخ، هزینه، قیمت، استعلام، شرایط پرداخت یا مشاوره بیمه‌های شخص ثالث، بدنه، آتش‌سوزی (یا طرح جام زرین)، درمان تکمیلی (یا طرح سما زرین)، و مسئولیت است، تو حتماً و تحت هر شرایطی باید تابع/ابزار مربوطه را صدا بزنی. حتی اگر اطلاعات کاربر ناقص است یا جزییات دقیقی مثل ارزش خودرو یا میزان تخفیف را نگفته است، تو باید اطلاعات مفقوده را با فرضیات کاملاً منطقی و حدودی پیش‌فرض تکمیل کنی (مثلاً برای پراید ارزش ۳۰۰ میلیون تومان و سال ساخت ۱۴۰۲ و تخفیف عدم خسارت ۰ سال؛ یا برای بیمه درمان سن ۳۵ سال و طرح استاندارد؛ یا برای مسئولیت کدهای ریسک متوسط) و حتماً تابع را با این مقادیر حدودی صدا بزنی. هرگز نباید بدون صدا زدن تابع محاسبه‌گر و بدون ارائه قیمت عددی تقریبی، پاسخ متنی بنویسی. تو در پاسخ نهایی فرضیات حدودی که در نظر گرفته‌ای را با خوشرویی به کاربر اعلام خواهی کرد تا بداند قیمت حدودی است و می‌تواند مشخصات دقیق‌تر را برای قیمت واقعی‌تر ارائه کند.
 
 توضیحات طرح‌های جدید بیمه ایران برای راهنمایی:
 ۱. طرح جام زرین: پکیج بیمه لوکس آتش‌سوزی، سیل، زلزله و سرقت منزل به همراه پوشش ویژه طلا و جواهرات داخل گاوصندوق تا سقف ارزش اعلامی کاربر.
@@ -889,14 +908,14 @@ async function startServer() {
             const args = call.args as any;
             calculationResult = calculateThirdPartyPremium({
               vehicleType: args.vehicleType || 'passenger_4cyl',
-              modelYear: Number(args.modelYear) || 1405,
-              noClaimDiscountYears: args.noClaimDiscountYears !== undefined ? Number(args.noClaimDiscountYears) : 0,
-              driverDiscountYears: args.driverDiscountYears !== undefined ? Number(args.driverDiscountYears) : 0,
-              financialLimit: Number(args.financialLimit) || 100000000,
+              modelYear: parseToCleanNumber(args.modelYear, 1405),
+              noClaimDiscountYears: parseToCleanNumber(args.noClaimDiscountYears, 0),
+              driverDiscountYears: parseToCleanNumber(args.driverDiscountYears, 0),
+              financialLimit: parseToCleanNumber(args.financialLimit, 100000000),
               previousCompany: args.previousCompany || 'بیمه ایران',
               hasDamageHistory: !!args.hasDamageHistory,
               paymentMode: args.paymentMode || 'cash',
-              installmentCount: Number(args.installmentCount) || 4
+              installmentCount: parseToCleanNumber(args.installmentCount, 4)
             });
             calculationInfo = {
               type: 'third_party',
@@ -909,15 +928,15 @@ async function startServer() {
             const args = call.args as any;
             calculationResult = calculateBodyPremium({
               vehicleType: args.vehicleType || 'passenger_4cyl',
-              vehicleValueTomans: Number(args.vehicleValueTomans) || 500000000,
-              modelYear: Number(args.modelYear) || 1405,
-              noClaimYears: args.noClaimYears !== undefined ? Number(args.noClaimYears) : 0,
+              vehicleValueTomans: parseToCleanNumber(args.vehicleValueTomans, 500000000),
+              modelYear: parseToCleanNumber(args.modelYear, 1405),
+              noClaimYears: parseToCleanNumber(args.noClaimYears, 0),
               coverGlass: !!args.coverGlass,
               coverNaturalDisasters: !!args.coverNaturalDisasters,
               coverChemicals: !!args.coverChemicals,
               coverPriceFluctuation: !!args.coverPriceFluctuation,
               paymentMode: args.paymentMode || 'cash',
-              installmentCount: Number(args.installmentCount) || 4
+              installmentCount: parseToCleanNumber(args.installmentCount, 4)
             });
             calculationInfo = {
               type: 'body',
@@ -930,16 +949,16 @@ async function startServer() {
             const args = call.args as any;
             calculationResult = calculateFirePremium({
               propertyType: args.propertyType || 'residential',
-              buildingValueTomans: Number(args.buildingValueTomans) || 1000000000,
-              appliancesValueTomans: Number(args.appliancesValueTomans) || 200000000,
-              areaSizeSqm: Number(args.areaSizeSqm) || 100,
+              buildingValueTomans: parseToCleanNumber(args.buildingValueTomans, 1000000000),
+              appliancesValueTomans: parseToCleanNumber(args.appliancesValueTomans, 200000000),
+              areaSizeSqm: parseToCleanNumber(args.areaSizeSqm, 100),
               coverEarthquake: !!args.coverEarthquake,
               coverPipeBurst: !!args.coverPipeBurst,
               coverFlood: !!args.coverFlood,
               isJaamZarrin: !!args.isJaamZarrin,
-              goldAssetValueTomans: args.goldAssetValueTomans ? Number(args.goldAssetValueTomans) : 0,
+              goldAssetValueTomans: parseToCleanNumber(args.goldAssetValueTomans, 0),
               paymentMode: args.paymentMode || 'cash',
-              installmentCount: Number(args.installmentCount) || 4
+              installmentCount: parseToCleanNumber(args.installmentCount, 4)
             });
             calculationInfo = {
               type: 'fire',
@@ -953,13 +972,13 @@ async function startServer() {
             calculationResult = calculateHealthPremium({
               planType: args.planType || 'standard',
               ageCategory: args.ageCategory || 'under_40',
-              personCount: Number(args.personCount) || 1,
+              personCount: parseToCleanNumber(args.personCount, 1),
               hasDental: !!args.hasDental,
               isSamaZarrin: !!args.isSamaZarrin,
               occupation: args.occupation || 'آزاد',
-              jobRiskCategory: Number(args.jobRiskCategory) || 1,
+              jobRiskCategory: parseToCleanNumber(args.jobRiskCategory, 1),
               paymentMode: args.paymentMode || 'cash',
-              installmentCount: Number(args.installmentCount) || 6
+              installmentCount: parseToCleanNumber(args.installmentCount, 6)
             });
             calculationInfo = {
               type: 'health',
@@ -972,12 +991,12 @@ async function startServer() {
             const args = call.args as any;
             calculationResult = calculateLiabilityPremium({
               liabilityType: args.liabilityType || 'civil',
-              staffCount: args.staffCount ? Number(args.staffCount) : 1,
+              staffCount: parseToCleanNumber(args.staffCount, 1),
               occupation: args.occupation || 'آزاد',
-              jobRiskCategory: Number(args.jobRiskCategory) || 1,
-              coverageLimitTomans: Number(args.coverageLimitTomans) || 1200000000,
+              jobRiskCategory: parseToCleanNumber(args.jobRiskCategory, 1),
+              coverageLimitTomans: parseToCleanNumber(args.coverageLimitTomans, 1200000000),
               paymentMode: args.paymentMode || 'cash',
-              installmentCount: Number(args.installmentCount) || 4
+              installmentCount: parseToCleanNumber(args.installmentCount, 4)
             });
             calculationInfo = {
               type: 'liability',
