@@ -6,11 +6,14 @@
 import React, { useState } from 'react';
 import { 
   Shield, Bot, Phone, Award, Clock, MapPin, 
-  HelpCircle, ChevronDown, CheckCircle2, HeartHandshake, Zap, Landmark 
+  HelpCircle, ChevronDown, CheckCircle2, HeartHandshake, Zap, Landmark,
+  User, Lock, ShieldCheck, LayoutDashboard, LogOut
 } from 'lucide-react';
 import SmartConsultant from './components/SmartConsultant';
 import PricingCalculator from './components/PricingCalculator';
 import LeadForm from './components/LeadForm';
+import AdminDashboard from './components/AdminDashboard';
+import AuthModal from './components/AuthModal';
 import { toPersianDigits } from './data/insuranceRates';
 
 export default function App() {
@@ -25,6 +28,12 @@ export default function App() {
   } | null>(null);
 
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+
+  // Authentication & Management Dashboard state
+  const [authModalMode, setAuthModalMode] = useState<'user' | 'admin' | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ name: string; phone: string } | null>(null);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
 
   const handlePreferencesChange = (newPrefs: any) => {
     setPreferences(newPrefs);
@@ -90,14 +99,57 @@ export default function App() {
             </span>
           </div>
 
-          <div>
+          <div className="flex items-center gap-2.5">
+            {/* Phone call button */}
             <a
               href="tel:02144567890"
-              className="bg-slate-900 hover:bg-slate-850 text-blue-400 hover:text-blue-300 font-bold px-4 py-2.5 rounded-xl border border-blue-500/20 text-xs flex items-center gap-1.5 transition-all duration-200 shadow-md hover:scale-[1.02]"
+              className="hidden lg:flex bg-slate-900 hover:bg-slate-850 text-blue-400 hover:text-blue-300 font-bold px-3 py-2 rounded-xl border border-blue-500/20 text-xs items-center gap-1.5 transition duration-200"
             >
               <Phone size={14} />
               <span>۰۲۱-۴۴۵۶۷۸۹۰</span>
             </a>
+
+            {/* User Auth state button */}
+            {currentUser ? (
+              <div className="flex items-center gap-2 bg-slate-900 border border-blue-500/30 px-3 py-1.5 rounded-xl text-xs text-blue-300">
+                <User size={14} className="text-blue-400" />
+                <span className="font-bold">{currentUser.name}</span>
+                <button
+                  onClick={() => setCurrentUser(null)}
+                  title="خروج از حساب"
+                  className="text-slate-500 hover:text-red-400 mr-1 text-[11px]"
+                >
+                  <LogOut size={13} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setAuthModalMode('user')}
+                className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 hover:text-blue-300 font-bold px-3 py-2 rounded-xl border border-blue-500/30 text-xs flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <User size={14} />
+                <span>ورود کاربران</span>
+              </button>
+            )}
+
+            {/* Admin Auth / Dashboard button */}
+            {isAdminLoggedIn ? (
+              <button
+                onClick={() => setAdminDashboardOpen(true)}
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition shadow-md shadow-amber-400/10 cursor-pointer"
+              >
+                <LayoutDashboard size={14} />
+                <span>داشبورد مدیریتی</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setAuthModalMode('admin')}
+                className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 font-bold px-3 py-2 rounded-xl border border-amber-500/30 text-xs flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <ShieldCheck size={14} />
+                <span>ورود مدیران</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -241,6 +293,34 @@ export default function App() {
             />
           </div>
         </div>
+      )}
+
+      {/* Auth Modal for User / Admin Login */}
+      {authModalMode && (
+        <AuthModal
+          initialMode={authModalMode}
+          onClose={() => setAuthModalMode(null)}
+          onUserLoginSuccess={(info) => {
+            setCurrentUser(info);
+            setAuthModalMode(null);
+          }}
+          onAdminLoginSuccess={() => {
+            setIsAdminLoggedIn(true);
+            setAuthModalMode(null);
+            setAdminDashboardOpen(true);
+          }}
+        />
+      )}
+
+      {/* Admin Management Dashboard */}
+      {adminDashboardOpen && (
+        <AdminDashboard
+          onClose={() => setAdminDashboardOpen(false)}
+          onLogout={() => {
+            setIsAdminLoggedIn(false);
+            setAdminDashboardOpen(false);
+          }}
+        />
       )}
 
       {/* Footer Details */}
