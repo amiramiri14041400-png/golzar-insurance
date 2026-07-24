@@ -1,387 +1,283 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useState } from 'react';
-import { Navbar } from './components/Navbar';
-import { HeroSection } from './components/HeroSection';
-import { InsuranceFormModal } from './components/InsuranceFormModal';
-import { InquiryTracker } from './components/InquiryTracker';
-import { AdminPanel } from './components/AdminPanel';
-import { UserDashboard } from './components/UserDashboard';
-import { AuthModal } from './components/AuthModal';
-import { SupabaseGuideModal } from './components/SupabaseGuideModal';
-import { AiConsultantDrawer } from './components/AiConsultantDrawer';
-import { Footer } from './components/Footer';
-import { InsuranceType, IRAN_BIMEH_AGENCY, User } from './types';
 import { 
-  ShieldCheck, 
-  Calculator, 
-  Upload, 
-  MessageSquare, 
-  Clock, 
-  PhoneCall, 
-  CheckCircle2, 
-  Car, 
-  Home, 
-  HeartPulse, 
-  Award, 
-  HelpCircle,
-  Sparkles,
-  ArrowLeft
+  Shield, Bot, Phone, Award, Clock, MapPin, 
+  HelpCircle, ChevronDown, CheckCircle2, HeartHandshake, Zap, Landmark 
 } from 'lucide-react';
+import SmartConsultant from './components/SmartConsultant';
+import PricingCalculator from './components/PricingCalculator';
+import LeadForm from './components/LeadForm';
+import { toPersianDigits } from './data/insuranceRates';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'track' | 'admin' | 'supabase' | 'user_dashboard'>('home');
-  const [selectedInsuranceType, setSelectedInsuranceType] = useState<InsuranceType>('third_party');
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [initialPremiumOverride, setInitialPremiumOverride] = useState<number | null>(null);
-  const [prefilledFields, setPrefilledFields] = useState<any>(null);
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
-  const [searchTrackingQuery, setSearchTrackingQuery] = useState('');
-  const [isConsultantOpen, setIsConsultantOpen] = useState(false);
-
-  // Authentication States
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem('golzar_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      return null;
-    }
+  const [preferences, setPreferences] = useState<any>({
+    type: 'third_party',
   });
 
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<'user' | 'admin'>('user');
+  const [selectedQuote, setSelectedQuote] = useState<{
+    type: string;
+    calculatedData: any;
+    inputs: any;
+  } | null>(null);
 
-  const handleOpenForm = (type: InsuranceType) => {
-    setSelectedInsuranceType(type);
-    setInitialPremiumOverride(null);
-    setPrefilledFields(null);
-    setIsFormModalOpen(true);
+  const [activeFaq, setActiveFaq] = useState<number | null>(null);
+
+  const handlePreferencesChange = (newPrefs: any) => {
+    setPreferences(newPrefs);
   };
 
-  const handleConfirmAndIssue = (type: InsuranceType, premium: number, args?: any) => {
-    setSelectedInsuranceType(type);
-    setInitialPremiumOverride(premium);
-    setPrefilledFields(args);
-    setIsFormModalOpen(true);
-    setIsConsultantOpen(false);
+  const handleSelectQuote = (type: string, calculatedData: any, inputs: any) => {
+    setSelectedQuote({ type, calculatedData, inputs });
   };
 
-  const handleSuccessSubmitted = (trackingCode: string) => {
-    setSearchTrackingQuery(trackingCode);
-    setActiveTab('track');
+  const toggleFaq = (idx: number) => {
+    setActiveFaq(activeFaq === idx ? null : idx);
   };
 
-  const handleOpenLoginModal = (mode: 'user' | 'admin') => {
-    setAuthModalMode(mode);
-    setIsAuthModalOpen(true);
-  };
-
-  const handleLoginSuccess = (user: User) => {
-    setCurrentUser(user);
-    localStorage.setItem('golzar_user', JSON.stringify(user));
-    
-    // Redirect to relevant panel
-    if (user.role === 'admin') {
-      setActiveTab('admin');
-    } else {
-      setActiveTab('user_dashboard');
+  const faqs = [
+    {
+      q: "تخفیف عدم خسارت بیمه شخص ثالث چگونه محاسبه می‌شود و سقف آن چقدر است؟",
+      a: "تخفیف عدم خسارت شخص ثالث سالانه ۵٪ به حق بیمه شما اضافه می‌شود. سقف این تخفیف پس از ۱۴ سال کارکرد بدون خسارت به ۷۰٪ می‌رسد. در صورت بروز حادثه و استفاده از بیمه، تخفیف‌های شما به صورت پلکانی کاهش می‌یابد و کاملاً صفر نمی‌شود."
+    },
+    {
+      q: "پوشش نوسان قیمت بازار در بیمه بدنه چه ضرورتی دارد؟",
+      a: "با توجه به تورم و افزایش مداوم قیمت خودروها، اگر خودروی شما در طول سال گران شود و حادثه‌ای رخ دهد، شرکت بیمه خسارت را بر اساس ارزش زمان صدور بیمه‌نامه پرداخت می‌کند. با خرید پوشش نوسان قیمت (تا سقف ۵۰٪ یا ۱۰۰٪)، خودروی شما به ارزش روز بیمه شده و خسارت کامل پرداخت می‌گردد."
+    },
+    {
+      q: "طرح عمر و پس‌انداز 'مان' بیمه ایران چه مزایایی نسبت به بانک دارد؟",
+      a: "بیمه عمر مان علاوه بر پرداخت سود تضمینی و سود مشارکت حاصل از سرمایه‌گذاری‌های دولتی بیمه ایران، پوشش‌های فوق‌العاده درمانی و حمایتی مانند هزینه‌های پزشکی حادثه، غرامت بیماری‌های خاص، معافیت از پرداخت حق بیمه در صورت ازکارافتادگی و سرمایه فوت را نیز به بیمه‌گذار ارائه می‌دهد که بانک فاقد این موارد است."
+    },
+    {
+      q: "فرانشیز در بیمه به چه معناست؟",
+      a: "فرانشیز سهم یا درصدی از خسارت است که پرداخت آن بر عهده خود بیمه‌گذار است. به عنوان مثال، در اولین خسارت بیمه بدنه معمولاً فرانشیز ۱۰٪ است؛ یعنی ۹۰٪ خسارت ارزیابی شده توسط بیمه ایران پرداخت می‌شود و ۱۰٪ مابقی سهم شما خواهد بود."
     }
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('golzar_user');
-    setActiveTab('home');
-  };
-
-  const handleGoToDashboard = () => {
-    if (!currentUser) return;
-    if (currentUser.role === 'admin') {
-      setActiveTab('admin');
-    } else {
-      setActiveTab('user_dashboard');
-    }
-  };
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-emerald-600 selection:text-white dir-rtl">
-      
-      {/* Navbar Header */}
-      <Navbar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        onOpenForm={handleOpenForm} 
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        onOpenLoginModal={handleOpenLoginModal}
-      />
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-500 selection:text-white" dir="rtl">
+      {/* Visual Ambient Glows */}
+      <div className="absolute top-0 right-1/4 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/3 left-1/4 w-[350px] h-[350px] bg-amber-500/5 rounded-full blur-[100px] pointer-events-none" />
 
-      {/* Main Content Body */}
-      <main className="flex-1">
-        
-        {activeTab === 'home' && (
-          <div className="space-y-16">
-            
-            {/* Hero Section */}
-            <HeroSection 
-              onOpenForm={handleOpenForm}
-              onGoToTrack={() => setActiveTab('track')}
-              currentUser={currentUser}
-              onOpenLoginModal={handleOpenLoginModal}
-              onGoToDashboard={handleGoToDashboard}
-            />
-
-            {/* Why Choose Iran Insurance Agency Golzar Code 30962 */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-8">
-              <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-xl space-y-10">
-                
-                <div className="text-center max-w-2xl mx-auto space-y-3">
-                  <span className="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full border border-amber-300">
-                    مزایای ویژه نمایندگی ۳۰۹۶۲ بیمه ایران
-                  </span>
-                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
-                    چرا بیمه خود را از نمایندگی گلزار خریداری کنیم؟
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                    با بیش از یک دهه تجربه در ارائه انواع بیمه‌نامه‌های تخصصی، با تضمین اعمال بالاترین تخفیف‌های قانونی و کارشناسی دقیق.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  
-                  {/* Feature 1 */}
-                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-emerald-500 hover:shadow-lg transition-all space-y-3">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-700 text-amber-300 flex items-center justify-center font-bold shadow">
-                      <Calculator className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-base text-slate-900">محاسبه آنلاین حدود قیمت</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      همان‌جا در فرم استعلام، حق بیمه پرداختی خود را به همراه تخفیفات سابقه به صورت شفاف و لحظه‌ای مشاهده نمایید.
-                    </p>
-                  </div>
-
-                  {/* Feature 2 */}
-                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-emerald-500 hover:shadow-lg transition-all space-y-3">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-800 text-amber-300 flex items-center justify-center font-bold shadow">
-                      <Upload className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-base text-slate-900">ارسال اسان مدارک</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      بارگذاری سریع تصویر روی کارت خودرو، بیمه‌نامه قبلی و کارت ملی بدون نیاز به مراجعه حضوری.
-                    </p>
-                  </div>
-
-                  {/* Feature 3 */}
-                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-emerald-500 hover:shadow-lg transition-all space-y-3">
-                    <div className="w-12 h-12 rounded-xl bg-slate-900 text-amber-300 flex items-center justify-center font-bold shadow">
-                      <MessageSquare className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-base text-slate-900">پیگیری و اطلاع پیامکی</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      صدور کد پیگیری اختصاصی و ارسال پیامک لحظه‌ای در تمام مراحل کارشناسی و صدور بیمه‌نامه.
-                    </p>
-                  </div>
-
-                  {/* Feature 4 */}
-                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-emerald-500 hover:shadow-lg transition-all space-y-3">
-                    <div className="w-12 h-12 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold shadow">
-                      <Award className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-base text-slate-900">تضمین اعتبار رسمی بیمه ایران</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      صدور مستقیم در سامانه اصلی شرکت سهامی بیمه ایران تحت کد نمایندگی رسمی ۳۰۹۶۲ (گلزار).
-                    </p>
-                  </div>
-
-                </div>
-
+      {/* Main App Bar / Navigation */}
+      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-700 p-2.5 rounded-xl text-white shadow-lg shadow-blue-500/10">
+              <Shield size={24} className="text-amber-300 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-black tracking-tight text-white">بیمه ایران</h1>
+                <span className="bg-amber-400 text-slate-950 font-bold text-[9px] px-2 py-0.5 rounded-md">نمایندگی گلزار</span>
               </div>
-            </section>
-
-            {/* Consultant & Agency Office Info Banner */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-8">
-              <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-900 rounded-3xl p-8 sm:p-10 text-white shadow-2xl border border-emerald-700/50 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                
-                <div className="lg:col-span-5 relative">
-                  <div className="rounded-2xl overflow-hidden border-2 border-amber-400/40 shadow-xl">
-                    <img 
-                      src="/src/assets/images/agency_consultant_1783066039218.jpg" 
-                      alt="کارشناس نمایندگی گلزار بیمه ایران کد ۳۰۹۶۲" 
-                      referrerPolicy="no-referrer"
-                      className="w-full h-64 object-cover object-center"
-                    />
-                  </div>
-                </div>
-
-                <div className="lg:col-span-7 space-y-4">
-                  <div className="inline-flex items-center gap-2 bg-emerald-900/80 border border-emerald-700 px-3 py-1 rounded-full text-xs text-amber-300 font-bold">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>پاسخگویی حضوری و تلفنی</span>
-                  </div>
-
-                  <h3 className="text-2xl sm:text-3xl font-black text-white">
-                    مشاوره تخصصی و تحویل بیمه‌نامه درب منزل یا محل کار
-                  </h3>
-
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                    دفتر نمایندگی گلزار با امکان استعلام آنلاین و ارسال رایگان نسخه فیزیکی بیمه‌نامه در سراسر تهران و ارسال الکترونیکی معتبر به سراسر کشور خدمت‌رسانی می‌نماید.
-                  </p>
-
-                  <div className="pt-2 flex flex-wrap items-center gap-4 text-xs font-bold">
-                    <button
-                      onClick={() => handleOpenForm('third_party')}
-                      className="px-6 py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-xl shadow-lg transition-all flex items-center gap-2 text-sm"
-                    >
-                      <span>شروع ثبت استعلام آنلاین</span>
-                      <ArrowLeft className="w-4 h-4" />
-                    </button>
-
-                    <a
-                      href={`tel:${IRAN_BIMEH_AGENCY.phone1.replace(/-/g, '')}`}
-                      className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/20 transition-all flex items-center gap-2"
-                    >
-                      <PhoneCall className="w-4 h-4 text-amber-300" />
-                      <span>تماس تلفنی: {IRAN_BIMEH_AGENCY.phone1}</span>
-                    </a>
-                  </div>
-                </div>
-
-              </div>
-            </section>
-
-            {/* FAQ Section */}
-            <section className="max-w-4xl mx-auto px-4 sm:px-8 pb-8">
-              <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200 shadow-lg space-y-6">
-                <div className="flex items-center gap-2 text-slate-900 border-b pb-4">
-                  <HelpCircle className="w-6 h-6 text-emerald-700" />
-                  <h3 className="text-xl font-bold">سوالات متداول استعلام و صدور بیمه ایران</h3>
-                </div>
-
-                <div className="space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed">
-                  
-                  <div className="p-4 bg-slate-50 rounded-2xl border space-y-1">
-                    <h4 className="font-bold text-slate-900 text-sm">چگونه تخفیف‌های عدم خسارت بیمه قبلی منتقل می‌شود؟</h4>
-                    <p className="text-slate-600">
-                      با بارگذاری تصویر بیمه‌نامه قبلی یا کارت خودرو، کارشناسان نمایندگی گلزار سوابق شما را از سامانه بیمه مرکزی استعلام نموده و حداکثر تخفیف استحقاقی را روی بیمه‌نامه جدید اعمال می‌نمایند.
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 rounded-2xl border space-y-1">
-                    <h4 className="font-bold text-slate-900 text-sm">آیا صدور بیمه‌نامه به صورت اقساطی امکان‌پذیر است؟</h4>
-                    <p className="text-slate-600">
-                      بله، در نمایندگی گلزار ۳۰۹۶۲ امکان صدور اقساطی بیمه شخص ثالث و بدنه با پیش‌پرداخت توافقی و بدون نیاز به ضامن فراهم می‌باشد.
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 rounded-2xl border space-y-1">
-                    <h4 className="font-bold text-slate-900 text-sm">پیگیری وضعیت درخواست چگونه انجام می‌شود؟</h4>
-                    <p className="text-slate-600">
-                      پس از ثبت استعلام، یک کد پیگیری به همراه پیامک برای شما ارسال می‌گردد. با وارد کردن کد در بخش «پیگیری وضعیت» می‌توانید تمام مراحل کارشناسی و صادر شدن بیمه‌نامه را آنلاین مشاهده نمایید.
-                    </p>
-                  </div>
-
-                </div>
-              </div>
-            </section>
-
-          </div>
-        )}
-
-        {/* Track Inquiry Tab View */}
-        {activeTab === 'track' && (
-          <InquiryTracker 
-            initialQuery={searchTrackingQuery}
-            onBackToHome={() => setActiveTab('home')}
-          />
-        )}
-
-        {/* Admin Panel Tab View */}
-        {activeTab === 'admin' && (
-          <AdminPanel 
-            onOpenNewInquiry={() => handleOpenForm('third_party')}
-          />
-        )}
-
-        {/* User Dashboard Tab View */}
-        {activeTab === 'user_dashboard' && currentUser && (
-          <UserDashboard 
-            user={currentUser}
-            onLogout={handleLogout}
-            onOpenNewInquiry={() => handleOpenForm('third_party')}
-          />
-        )}
-
-        {/* Supabase SQL Instructions Modal/View */}
-        {activeTab === 'supabase' && (
-          <div className="max-w-5xl mx-auto px-4 py-8">
-            <div className="bg-white p-6 rounded-3xl border shadow-xl">
-              <button
-                onClick={() => setIsSupabaseModalOpen(true)}
-                className="w-full py-4 bg-emerald-900 text-white font-bold rounded-2xl flex items-center justify-center gap-2 text-sm shadow-lg hover:bg-emerald-800"
-              >
-                <Sparkles className="w-5 h-5 text-amber-400" />
-                <span>باز کردن کامل پنجره راهنما و دستورات SQL دیتابیس Supabase</span>
-              </button>
+              <p className="text-slate-400 text-[10px] font-medium">سامانه هوشمند مشاوره، استعلام و نرخ‌دهی دقیق (کد ۴۴۵۶)</p>
             </div>
           </div>
-        )}
 
+          <div className="hidden md:flex items-center gap-6 text-xs text-slate-400 font-semibold">
+            <span className="flex items-center gap-1 hover:text-slate-200 cursor-pointer">
+              <MapPin size={14} className="text-blue-500" />
+              تهران، خیابان گلزار، پلاک ۴۴
+            </span>
+            <span className="flex items-center gap-1 hover:text-slate-200 cursor-pointer">
+              <Clock size={14} className="text-blue-500" />
+              ساعت کاری: ۸:۳۰ الی ۱۷:۰۰
+            </span>
+          </div>
+
+          <div>
+            <a
+              href="tel:02144567890"
+              className="bg-slate-900 hover:bg-slate-850 text-blue-400 hover:text-blue-300 font-bold px-4 py-2.5 rounded-xl border border-blue-500/20 text-xs flex items-center gap-1.5 transition-all duration-200 shadow-md hover:scale-[1.02]"
+            >
+              <Phone size={14} />
+              <span>۰۲۱-۴۴۵۶۷۸۹۰</span>
+            </a>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Welcome Banner */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-gradient-to-r from-blue-900/40 via-indigo-950/20 to-slate-950 border border-slate-800 rounded-2xl p-6 sm:p-8 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-32 h-32 bg-amber-400/5 rounded-full blur-[40px] pointer-events-none" />
+          <div className="max-w-3xl space-y-4">
+            <div className="inline-flex items-center gap-1.5 bg-amber-400/10 text-amber-300 text-xs font-bold px-3 py-1 rounded-full border border-amber-400/20">
+              <Zap size={13} />
+              <span>طرح مشاوره و استعلام نرخ هوشمند بر اساس تعرفه‌های رسمی سال جاری</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+              آرامش و امنیت شما با <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300">اولین و معتبرترین</span> شرکت بیمه دولتی کشور
+            </h2>
+            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed font-light">
+              در نمایندگی گلزار (کد ۴۴۵۶ بیمه ایران) با استفاده از هوش مصنوعی و آخرین نرخ‌نامه‌های مصوب بیمه مرکزی، ریسک‌های خود را تحلیل کنید، قیمت دقیق پوشش‌های ثالث، بدنه، آتش‌سوزی و زلزله، عمر مان و مسافرتی را در لحظه بسنجید و پیش‌نویس استعلام خود را آنلاین صادر نمایید.
+            </p>
+          </div>
+
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-800/60 text-center">
+            <div className="space-y-1">
+              <span className="text-slate-500 text-[10px] font-bold block">رتبه رضایت مشتریان</span>
+              <span className="text-sm sm:text-base font-black text-white flex items-center justify-center gap-1">
+                <Award size={15} className="text-amber-400" />
+                رتبه ممتاز کشوری
+              </span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-slate-500 text-[10px] font-bold block">پشتوانه پرداخت خسارت</span>
+              <span className="text-sm sm:text-base font-black text-white flex items-center justify-center gap-1">
+                <Landmark size={15} className="text-blue-400" />
+                ۱۰۰٪ تضمین دولتی
+              </span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-slate-500 text-[10px] font-bold block">پرداخت خسارت سریع</span>
+              <span className="text-sm sm:text-base font-black text-white flex items-center justify-center gap-1">
+                <Clock size={15} className="text-emerald-400" />
+                کمتر از ۲۴ ساعت
+              </span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-slate-500 text-[10px] font-bold block">خدمت‌رسانی بی‌وقفه</span>
+              <span className="text-sm sm:text-base font-black text-white flex items-center justify-center gap-1">
+                <HeartHandshake size={15} className="text-pink-400" />
+                ۲۴ ساعت شبانه‌روز
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Layout Grid */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+          {/* Right Section: Smart AI Advisor & Assistant */}
+          <div className="xl:col-span-4 order-2 xl:order-1 flex flex-col justify-between">
+            <div className="space-y-4 sticky top-24">
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+                <h4 className="text-xs font-bold text-slate-300 flex items-center gap-1">
+                  <Bot size={14} className="text-blue-500" />
+                  تحلیل زنده ترجیحات مشتری
+                </h4>
+                <p className="text-[10px] text-slate-400 leading-relaxed font-light">
+                  دستیار هوشمند ما با تحلیل اطلاعاتی که در محاسبگر سمت چپ وارد می‌کنید، سقف پوشش‌های توصیه‌شده و پوشش‌های ضروری برای کاهش ریسک مالی شما را بازگو می‌کند.
+                </p>
+                {preferences.calculatedPremium && (
+                  <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-[11px] flex justify-between items-center text-slate-300 font-sans">
+                    <span>آخرین حق بیمه محاسباتی:</span>
+                    <span className="text-amber-400 font-bold">
+                      {preferences.type === 'life' 
+                        ? toPersianDigits(preferences.calculatedPremium.toLocaleString('fa-IR')) + ' تومان سرمایه انباشته'
+                        : toPersianDigits(Math.round(preferences.calculatedPremium / 10).toLocaleString('fa-IR')) + ' تومان'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <SmartConsultant currentPreferences={preferences} onApplyAIRecommendation={() => {}} />
+            </div>
+          </div>
+
+          {/* Left Section: Price Calculator Tab view */}
+          <div className="xl:col-span-8 order-1 xl:order-2 space-y-8">
+            <PricingCalculator 
+              onPreferencesChange={handlePreferencesChange} 
+              onSelectQuote={handleSelectQuote} 
+            />
+
+            {/* Accordion FAQ Guide Base */}
+            <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+              <div className="flex items-center gap-2 text-slate-100">
+                <HelpCircle size={20} className="text-amber-400" />
+                <h3 className="font-bold text-base">راهنما و سوالات متداول بیمه ایران (نمایندگی گلزار)</h3>
+              </div>
+              
+              <div className="space-y-2">
+                {faqs.map((faq, idx) => {
+                  const isOpen = activeFaq === idx;
+                  return (
+                    <div 
+                      key={idx} 
+                      className="border border-slate-800 rounded-xl overflow-hidden transition-all duration-200"
+                    >
+                      <button
+                        onClick={() => toggleFaq(idx)}
+                        className="w-full flex items-center justify-between p-4 bg-slate-950/40 hover:bg-slate-950/60 text-right transition cursor-pointer text-sm font-semibold text-slate-300"
+                      >
+                        <span>{faq.q}</span>
+                        <ChevronDown 
+                          size={16} 
+                          className={`text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180 text-amber-400' : ''}`} 
+                        />
+                      </button>
+                      
+                      {isOpen && (
+                        <div className="p-4 bg-slate-950 text-xs text-slate-400 leading-relaxed font-light border-t border-slate-800">
+                          {faq.a}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        </div>
       </main>
 
-      {/* Interactive Form Modal */}
-      <InsuranceFormModal
-        isOpen={isFormModalOpen}
-        onClose={() => setIsFormModalOpen(false)}
-        initialType={selectedInsuranceType}
-        onSuccessSubmit={handleSuccessSubmitted}
-        initialPremiumOverride={initialPremiumOverride}
-        prefilledFields={prefilledFields}
-      />
-
-      {/* Supabase Setup Modal */}
-      <SupabaseGuideModal
-        isOpen={isSupabaseModalOpen || activeTab === 'supabase'}
-        onClose={() => {
-          setIsSupabaseModalOpen(false);
-          if (activeTab === 'supabase') setActiveTab('home');
-        }}
-      />
-
-      {/* Authentication Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onLoginSuccess={handleLoginSuccess}
-        initialMode={authModalMode}
-      />
-
-      {/* Floating AI Consultant Button */}
-      {!isConsultantOpen && (
-        <button
-          onClick={() => setIsConsultantOpen(true)}
-          className="fixed bottom-5 right-5 z-40 group relative bg-gradient-to-r from-emerald-800 to-slate-900 hover:from-emerald-700 hover:to-slate-800 text-white p-3.5 rounded-2xl shadow-2xl border-2 border-amber-400 flex items-center gap-2.5 transition-all duration-300 hover:scale-105"
-        >
-          <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold shadow animate-pulse">
-            <Sparkles className="w-5 h-5 text-slate-950" />
+      {/* Floating/Overlay Modal for Lead Submission */}
+      {selectedQuote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-xl animate-in fade-in zoom-in duration-300 my-auto">
+            <LeadForm 
+              selectedInsuranceType={selectedQuote.type} 
+              calculatedData={selectedQuote.calculatedData} 
+              inputs={selectedQuote.inputs} 
+              onClose={() => setSelectedQuote(null)} 
+            />
           </div>
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-black text-amber-300">مشاور هوشمند بیمه</p>
-            <p className="text-[10px] text-emerald-200">پاسخ آنلاین به سوالات بیمه</p>
-          </div>
-        </button>
+        </div>
       )}
 
-      {/* AI Consultant Drawer */}
-      <AiConsultantDrawer
-        isOpen={isConsultantOpen}
-        onClose={() => setIsConsultantOpen(false)}
-        onConfirmAndIssue={handleConfirmAndIssue}
-      />
+      {/* Footer Details */}
+      <footer className="bg-slate-950 border-t border-slate-800 text-xs text-slate-500 py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="font-black text-slate-300 text-sm">نمایندگی گلزار بیمه ایران</span>
+              <span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded">کد ۴۴۵۶</span>
+            </div>
+            <p className="leading-relaxed font-light">
+              اولین و با سابقه‌ترین ارائه‌دهنده کلیه خدمات صدور و پرداخت خسارت بیمه‌های خودرو، عمر، مسئولیت، مهندسی و باربری با تضمین و پشتوانه ۱۰۰٪ دولتی شرکت سهامی بیمه ایران در تهران.
+            </p>
+          </div>
 
-      {/* Footer */}
-      <Footer 
-        onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
-      />
+          <div className="space-y-3">
+            <span className="font-bold text-slate-300 block">اطلاعات تماس و دسترسی</span>
+            <div className="space-y-1.5 font-light">
+              <div>📍 آدرس: تهران، خیابان گلزار، پلاک ۴۴، ساختمان پزشکان، طبقه همکف</div>
+              <div>📞 تلفن تماس: ۰۲۱-۴۴۵۶۷۸۹۰ | فکس: ۰۲۱-۴۴۵۶۷۸۹۱</div>
+              <div>✉️ ایمیل نمایندگی: golzar4456@iraninsurance.ir</div>
+            </div>
+          </div>
 
+          <div className="space-y-3">
+            <span className="font-bold text-slate-300 block">قوانین و مقررات قانونی</span>
+            <p className="leading-relaxed font-light text-[11px]">
+              کلیه محاسبات، جریمه‌ها و تخفیف‌های ارائه شده در این پورتال هوشمند بر اساس آیین‌نامه‌های مصوب شورای عالی بیمه و دستورالعمل‌های رسمی سندیکای بیمه‌گران ایران بوده و فرآیند نهایی صدور مشروط به استعلام کد ملی و تایید سوابق سیستم بیمه‌گری مرکزی خواهد بود.
+            </p>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-800/60 mt-8 pt-6 text-center flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] font-light">
+          <span>تمامی حقوق مادی و معنوی محفوظ و متعلق به نمایندگی گلزار بیمه ایران (کد ۴۴۵۶) می‌باشد. طراحی با استفاده از دستیار هوشمند گوگل.</span>
+          <span>سال ۱۴۰۵ هجری شمسی</span>
+        </div>
+      </footer>
     </div>
   );
 }

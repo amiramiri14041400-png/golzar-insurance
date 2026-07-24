@@ -1,108 +1,54 @@
-export type InsuranceType = 
-  | 'third_party'  // بیمه شخص ثالث
-  | 'body'         // بیمه بدنه
-  | 'fire'         // بیمه آتش‌سوزی و زلزله
-  | 'health'       // بیمه تکمیلی درمان
-  | 'life'         // بیمه عمر و سرمایه‌گذاری
-  | 'liability'    // بیمه مسئولیت
-  | 'travel';      // بیمه مسافرتی
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-export type InquiryStatus = 
-  | 'pending'           // در انتظار بررسی
-  | 'in_progress'       // در حال پیگیری و کارشناسی
-  | 'ready_for_issuance'// آماده صدور و واریز
-  | 'issued'            // صادر شده
-  | 'rejected';         // رد شده / انصراف
-
-export interface UploadedDocument {
+export interface Message {
   id: string;
-  type: 'car_card_front' | 'car_card_back' | 'prev_policy' | 'national_card' | 'driving_license' | 'other' | string;
-  label: string;
-  fileUrl: string;
-  fileName: string;
-  fileSize?: string;
-  uploadedAt: string;
+  sender: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
 }
 
-export interface Inquiry {
-  id: string;
-  trackingCode: string; // e.g. IR30962-92814
-  insuranceType: InsuranceType;
-  fullName: string;
-  nationalId: string;
-  mobile: string;
-  province: string;
-  city: string;
-  address?: string;
-  status: InquiryStatus;
-  formData: Record<string, any>;
-  documents: UploadedDocument[];
-  expertNotes?: string;
-  issuedPolicyUrl?: string;
-  issuedAt?: string;
-  createdAt: string;
-  updatedAt: string;
+export type InsuranceType = 'third_party' | 'hull' | 'fire' | 'life' | 'travel';
+
+export interface ThirdPartyInput {
+  vehicleType: string; // 'sedan' | 'suv' | 'motorcycle' | 'heavy'
+  cylinders: string; // '4cyl_under_1500' | '4cyl_over_1500' | '6cyl' | 'other'
+  manufactureYear: number; // Solar Hijri year, e.g., 1400
+  noClaimYears: number; // 0 to 14
+  previousAccidents: 'none' | 'one_financial' | 'one_bodily' | 'multiple';
+  financialCoverage: number; // coverage limit in Rials, e.g., 1,000,000,000
 }
 
-export interface SmsLog {
-  id: string;
-  mobile: string;
-  trackingCode: string;
-  message: string;
-  status: 'sent' | 'delivered' | 'failed';
-  sentAt: string;
-  provider: 'FarazSMS' | 'Kavenegar' | 'MeliPayamak' | 'SystemSimulated';
+export interface HullInput {
+  vehicleValue: number; // in Rials, e.g., 5,000,000,000
+  vehicleType: string;
+  manufactureYear: number;
+  noClaimYears: number;
+  selectedAddons: string[]; // 'theft_parts' | 'glass_breakage' | 'acid' | 'natural_disasters' | 'price_fluctuation'
 }
 
-export interface AgencyInfo {
-  code: string;
-  name: string;
-  agentName: string;
-  phone1: string;
-  phone2: string;
-  mobileEmergency: string;
-  address: string;
-  province: string;
-  city: string;
-  workingHours: string;
-  licenseNumber: string;
-  email: string;
+export interface FireInput {
+  propertyType: 'apartment' | 'house' | 'villa' | 'commercial';
+  constructionType: 'concrete_steel' | 'brick' | 'adobe_wood';
+  areaSqm: number;
+  costPerSqm: number; // in Rials, e.g., 150,000,000
+  contentsValue: number; // in Rials
+  selectedAddons: string[]; // 'earthquake' | 'flood' | 'pipe_burst' | 'theft' | 'neighbor_liability'
 }
 
-export interface User {
-  id: string;
-  email: string;
-  username: string;
-  fullName: string;
-  mobile: string;
-  nationalId?: string;
-  role: 'user' | 'admin';
-  createdAt: string;
+export interface LifeInput {
+  age: number;
+  monthlyPremium: number; // in Rials
+  paymentPeriodYears: number; // 5 to 30
+  annualPremiumIncrease: number; // 0 | 10 | 15 | 20 (percent)
+  inflationTarget: number; // expected inflation for compound charts
 }
 
-export interface CustomField {
-  id: string;
-  insuranceType: string;
-  label: string;
-  type: 'file_image_or_pdf' | 'file_image' | 'file_pdf' | 'text' | 'number' | 'select';
-  required: boolean;
-  digitCount?: number;
-  placeholder?: string;
-  options?: string[];
-  createdAt: string;
+export interface TravelInput {
+  age: number;
+  durationDays: number; // 1 to 92+
+  destinationZone: string; // 'zone1' | 'zone2' | 'worldwide'
+  coverageLimit: number; // in Euros, e.g. 10000 | 30000 | 50000
 }
-
-export const IRAN_BIMEH_AGENCY: AgencyInfo = {
-  code: '30962',
-  name: 'نمایندگی گلزار',
-  agentName: 'مهندس گلزار',
-  phone1: '۰۲۱-۸۸۹۹۰۰۱۱',
-  phone2: '۰۲۱-۸۸۹۹۰۰۱۲',
-  mobileEmergency: '۰۹۱۲۳۴۵۶۷۸۹',
-  address: 'تهران، خیابان ولیعصر، نرسیده به میدان ونک، مجتمع تجاری اداری گلزار، طبقه دوم، واحد ۳۰۹',
-  province: 'تهران',
-  city: 'تهران',
-  workingHours: 'شنبه تا چهارشنبه ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها ۸:۰۰ الی ۱۳:۰۰',
-  licenseNumber: 'ب‌ا/۳۰۹۶۲/۱۴۰۲',
-  email: 'info@iranbimeh30962.ir'
-};
